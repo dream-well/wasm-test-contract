@@ -1,22 +1,25 @@
-use cosmwasm_std::{
-    to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier, StdError,
-    StdResult, Storage,
-};
+use cosmwasm_std::{to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier, StdError, StdResult, Storage, Empty, CosmosMsg, HumanAddr, BankMsg, log};
+
+use cw2::set_contract_version;
 
 use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{config, config_read, State};
+use crate::state::{bonsai_store, bonsai_store_readonly, gardeners_store, gardeners_store_readonly,
+                   Bonsai, Gardener, BonsaiList};
+use std::any::Any;
 
+// version info for migration purposes
+const CONTRACT_NAME: &str = "crates.io:bonsai-cw-bragaz";
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// init is like the genesis of cosmos SDK
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
-    let state = State {
-        count: msg.count,
-        owner: deps.api.canonical_address(&env.message.sender)?,
-    };
-
-    config(&mut deps.storage).save(&state)?;
+    // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    let bonsai_list = BonsaiList::grow_bonsais(msg.water, msg.number, env.block.height);
+    bonsai_store(&mut deps.storage).save(&bonsai_list)?;
 
     Ok(InitResponse::default())
 }
@@ -24,40 +27,89 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    msg: HandleMsg,
-) -> StdResult<HandleResponse> {
+    msg: HandleMsg<Empty>,
+) -> StdResult<HandleResponse<Empty>> {
     match msg {
-        HandleMsg::Increment {} => try_increment(deps, env),
-        HandleMsg::Reset { count } => try_reset(deps, env, count),
+        HandleMsg::BuyBonsai {
+            msgs,
+            id
+        } => handle_buy_bonsai(deps, env, msgs, id),
+        HandleMsg::SellBonsai {
+            msgs,
+            owner,
+            recipient,
+            id
+        } => handle_sell_bonsai(deps, env, msgs, owner, recpient, id),
+        HandleMsg::CutBonsai { owner, id } => handle_cut_bonsai(deps, env, owner, id),
+        HandleMsg::PourWater { owner, ids } => handle_pour_water(deps, env, owner, ids)
     }
 }
 
-pub fn try_increment<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    _env: Env,
-) -> StdResult<HandleResponse> {
-    config(&mut deps.storage).update(|mut state| {
-        state.count += 1;
-        Ok(state)
-    })?;
-
-    Ok(HandleResponse::default())
-}
-
-pub fn try_reset<S: Storage, A: Api, Q: Querier>(
+pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    count: i32,
+    msgs: Vec<CosmosMsg<T>>,
+    id: String,
 ) -> StdResult<HandleResponse> {
-    let api = &deps.api;
-    config(&mut deps.storage).update(|mut state| {
-        if api.canonical_address(&env.message.sender)? != state.owner {
-            return Err(StdError::unauthorized());
-        }
-        state.count = count;
-        Ok(state)
-    })?;
-    Ok(HandleResponse::default())
+    // try to load bonsai list if present otherwise returns error
+    let mut bonsai_list = bonsai_store(&mut deps.storage).load()?;
+
+    let bonsai = bonsai_list.bonsais
+        .iter()
+        .find(| &&bonsai | bonsai.id == id )?;
+
+    let balance = deps.querier.query_balance(&env.message.sender, &String::from("shell"))?;
+    if balance.amount < bonsai.price {
+        return Err(StdError::generic_err("Insufficient balance to buy the bonsai"))
+    }
+
+    bonsai_list.bonsais.retain(| &bonsai| bonsai.id == id);
+
+    bonsai_store(&mut deps.storage).save(&bonsai_list)?;
+
+    let res = HandleResponse {
+        messages: vec![BankMsg::Send {
+            from_address: env.message.sender.clone(),
+            to_address: env.contract.address,
+            amount: vec![bonsai.price],
+        }.into()],
+        log: vec![
+            log("action", "claim"),
+            log("from", env.message.sender),
+            log("amount", bonsai.price.clone()),
+        ],
+        data: None,
+    };
+    Ok(res)
+}
+
+pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    msgs: Vec<CosmosMsg<T>>,
+    owner: HumanAddr,
+    recipient: HumanAddr,
+    id: String,
+) -> StdResult<HandleResponse> {
+
+}
+
+pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    owner: HumanAddr,
+    id: String,
+) -> StdResult<HandleResponse> {
+
+}
+
+pub fn handle_pour_water<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    owner: HumanAddr,
+    id: Vec<String>,
+) -> StdResult<HandleResponse> {
+
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -65,13 +117,17 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_binary(&query_count(deps)?),
+        QueryMsg::GetBonsais { owner } => to_binary(&query_bonsais(deps, owner)?),
+        QueryMsg::GetGardeners {} => to_binary(&query_gardeners(deps)?),
     }
 }
 
-fn query_count<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<CountResponse> {
-    let state = config_read(&deps.storage).load()?;
+fn query_bonsais<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, owner: HumanAddr) -> StdResult<BonsaisResponse> {
     Ok(CountResponse { count: state.count })
+}
+
+fn query_gardeners<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<GardenersResponse> {
+
 }
 
 #[cfg(test)]

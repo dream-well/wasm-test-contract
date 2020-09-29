@@ -1,27 +1,29 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use cosmwasm_std::{HumanAddr, Empty, CosmosMsg};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
-    pub count: i32,
+    pub water: bool,
+    pub number: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
-    Increment {},
-    Reset { count: i32 },
+pub enum HandleMsg<T = Empty>
+    where
+        T: Clone + fmt::Debug + PartialEq + JsonSchema,
+{
+    PourWater { owner: HumanAddr, ids: Vec<String>},
+    CutBonsai { owner: HumanAddr, id: String },
+    SellBonsai { msgs: Vec<CosmosMsg<T>>, owner: HumanAddr, recipient: HumanAddr, id: String },
+    BuyBonsai { msgs: Vec<CosmosMsg<T>>, id: String }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // GetCount returns the current count as a json-encoded number
-    GetCount {},
-}
-
-// We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CountResponse {
-    pub count: i32,
+    GetBonsais { owner: HumanAddr },
+    GetGardeners { }
 }
