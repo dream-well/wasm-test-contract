@@ -1,11 +1,8 @@
-use cosmwasm_std::{to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier, StdError, StdResult, Storage, Empty, CosmosMsg, HumanAddr, BankMsg, log};
+use cosmwasm_std::{to_binary, Api, Binary, Env, Extern, HandleResponse, InitResponse, Querier, StdError, StdResult, Storage, HumanAddr, BankMsg, log};
 
-use cw2::set_contract_version;
-
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{HandleMsg, InitMsg, QueryMsg};
 use crate::state::{bonsai_store, bonsai_store_readonly, gardeners_store, gardeners_store_readonly,
-                   Bonsai, Gardener, BonsaiList};
-use std::any::Any;
+                   Gardener, BonsaiList};
 
 // version info for migration purposes
 const CONTRACT_NAME: &str = "crates.io:bonsai-cw-bragaz";
@@ -18,7 +15,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
     // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let bonsai_list = BonsaiList::grow_bonsais(msg.water, msg.number, env.block.height);
+    let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price);
     bonsai_store(&mut deps.storage).save(&bonsai_list)?;
 
     Ok(InitResponse::default())
@@ -27,45 +24,88 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
 pub fn handle<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    msg: HandleMsg<Empty>,
-) -> StdResult<HandleResponse<Empty>> {
+    msg: HandleMsg,
+) -> StdResult<HandleResponse> {
     match msg {
+        HandleMsg::BecomeGardener {
+            name,
+        } => handle_become_gardener(deps, env, name),
         HandleMsg::BuyBonsai {
-            msgs,
-            id
-        } => handle_buy_bonsai(deps, env, msgs, id),
+            b_id,
+            name,
+        } => handle_buy_bonsai(deps, env, b_id, name),
         HandleMsg::SellBonsai {
-            msgs,
-            owner,
             recipient,
-            id
-        } => handle_sell_bonsai(deps, env, msgs, owner, recpient, id),
-        HandleMsg::CutBonsai { owner, id } => handle_cut_bonsai(deps, env, owner, id),
-        HandleMsg::PourWater { owner, ids } => handle_pour_water(deps, env, owner, ids)
+            b_id
+        } => handle_sell_bonsai(deps, env, recipient, b_id),
+        HandleMsg::CutBonsai {
+            b_id
+        } => handle_cut_bonsai(deps, env, b_id),
     }
+}
+
+pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    name: String,
+) -> StdResult<HandleResponse> {
+    let canonical_addr = &deps.api.canonical_address(&env.message.sender)?;
+    let res = gardeners_store(&mut deps.storage).load(canonical_addr.as_slice());
+    let gardener = match res {
+        Ok(_) => return Err(StdError::generic_err("A gardener with the sender address already exist")),
+        Err(_) => Gardener::new(name, canonical_addr.clone(), vec![])
+    };
+
+    gardeners_store(&mut deps.storage).save(canonical_addr.as_slice(), &gardener)?;
+
+    let mut res = HandleResponse::default();
+    res.log = vec![
+        log("action", "become_gardener"),
+        log("gardener_addr", env.message.sender),
+    ];
+
+    Ok(res)
 }
 
 pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    msgs: Vec<CosmosMsg<T>>,
     id: String,
+    name: Option<String>,
 ) -> StdResult<HandleResponse> {
     // try to load bonsai list if present otherwise returns error
     let mut bonsai_list = bonsai_store(&mut deps.storage).load()?;
 
     let bonsai = bonsai_list.bonsais
         .iter()
-        .find(| &&bonsai | bonsai.id == id )?;
+        .find(|&&bonsai| bonsai.id == id);
 
-    let balance = deps.querier.query_balance(&env.message.sender, &String::from("shell"))?;
-    if balance.amount < bonsai.price {
-        return Err(StdError::generic_err("Insufficient balance to buy the bonsai"))
+    let bonsai = match bonsai {
+        Some(bonsai) => bonsai,
+        None => return Err(StdError::not_found("Bonsai not found"))
+    };
+
+    // check if the gardener has enough funds to buy the bonsai
+    let denom = deps.querier.query_bonded_denom()?;
+    let balance = deps.querier.query_balance(&env.message.sender, &denom.as_str())?;
+    if balance.amount < bonsai.price.amount {
+        return Err(StdError::generic_err("Insufficient funds to buy the bonsai"));
     }
 
-    bonsai_list.bonsais.retain(| &bonsai| bonsai.id == id);
+    // remove the bought bonsai from the garden
+    bonsai_store(&mut deps.storage).update(|mut bonsai_list| {
+        bonsai_list.bonsais.retain(|&bonsai| bonsai.id == id);
+        Ok(bonsai_list)
+    })?;
 
-    bonsai_store(&mut deps.storage).save(&bonsai_list)?;
+    let canonical_addr = &deps.api.canonical_address(&env.message.sender)?;
+    // todo check if it's possible to use may_update
+    gardeners_store(&mut deps.storage).load(canonical_addr.as_slice())?;
+    gardeners_store(&mut deps.storage).update(canonical_addr.as_slice(), |gardener| {
+        let mut unwrapped = gardener.unwrap();
+        unwrapped.bonsais.push(bonsai.clone());
+        Ok(unwrapped)
+    });
 
     let res = HandleResponse {
         messages: vec![BankMsg::Send {
@@ -74,42 +114,89 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
             amount: vec![bonsai.price],
         }.into()],
         log: vec![
-            log("action", "claim"),
-            log("from", env.message.sender),
-            log("amount", bonsai.price.clone()),
+            log("action", "buy_bonsai"),
+            log("buyer", env.message.sender),
+            log("amount", bonsai.price.amount),
         ],
         data: None,
     };
+
     Ok(res)
 }
 
 pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    msgs: Vec<CosmosMsg<T>>,
-    owner: HumanAddr,
-    recipient: HumanAddr,
+    buyer: HumanAddr,
     id: String,
 ) -> StdResult<HandleResponse> {
+    // convert human_addr to canonical
+    let seller_addr = &deps.api.canonical_address(&env.message.sender)?;
+    // load the store and get the seller
+    let mut seller_bonsai_list = gardeners_store(&mut deps.storage)
+        .load(seller_addr.as_slice())?.bonsais;
 
+    // extract the bonsai to sell
+    let bonsai_to_sell = seller_bonsai_list
+        .iter()
+        .find(|&&bonsai| bonsai.id == id)?.clone();
+
+    // check buyer's funds
+    let denom = &deps.querier.query_bonded_denom()?;
+    let balance = deps.querier.query_balance(&buyer, &denom.as_str());
+
+    if balance.amount < bonsai_to_sell.price {
+        return Err(StdError::generic_err("Insufficient buyers funds"));
+    }
+
+    // add sold bonsai to buyer list
+    let buyer_addr = &deps.api.canonical_address(&buyer)?;
+    gardeners_store(&mut deps.storage)
+        .update(buyer_addr.as_slice(), |gardener| {
+            let mut unwrapped = gardener.unwrap();
+            unwrapped.bonsais.push(bonsai_to_sell);
+            Ok(unwrapped)
+        });
+
+    // remove the sold bonsai from seller list
+    seller_bonsai_list.retain(|&bonsai| bonsai.id == id);
+    gardeners_store(&mut deps.storage).update(seller_addr.as_slice(), |seller_gardener| {
+        let mut unwrapped = seller_gardener.unwrap();
+        unwrapped.bonsais = seller_bonsai_list;
+        Ok(unwrapped)
+    });
+
+
+    let mut res = HandleResponse::default();
+    res.log = vec![
+        log("action", "sold_bonsai"),
+        log("from", env.message.sender),
+        log("to", buyer),
+    ];
+
+    Ok(res)
 }
 
 pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
-    owner: HumanAddr,
     id: String,
 ) -> StdResult<HandleResponse> {
+    let owner_addr = deps.api.canonical_address(&env.message.sender)?;
+    gardeners_store(&mut deps.storage).update(owner_addr.as_slice(), |gardener| {
+        let mut unwrapped = gardener.unwrap();
+        unwrapped.bonsais.retain(|&bonsai| bonsai.id == id);
+        Ok(unwrapped)
+    });
 
-}
+    let mut res = HandleResponse::default();
+    res.log = vec![
+        log("action", "cut_bonsai"),
+        log("owner", env.message.sender),
+        log("bonsai_id", id),
+    ];
 
-pub fn handle_pour_water<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-    owner: HumanAddr,
-    id: Vec<String>,
-) -> StdResult<HandleResponse> {
-
+    Ok(res)
 }
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
@@ -117,86 +204,32 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetBonsais { owner } => to_binary(&query_bonsais(deps, owner)?),
-        QueryMsg::GetGardeners {} => to_binary(&query_gardeners(deps)?),
+        QueryMsg::GetBonsais {} => to_binary(&query_bonsais(deps)?),
+        QueryMsg::GetGardeners { sender } => to_binary(&query_gardeners(deps, sender)?),
     }
 }
 
-fn query_bonsais<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>, owner: HumanAddr) -> StdResult<BonsaisResponse> {
-    Ok(CountResponse { count: state.count })
+fn query_bonsais<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<BonsaiList> {
+    let bonsais = bonsai_store_readonly(&deps.storage).load()?;
+    Ok(bonsais)
 }
 
-fn query_gardeners<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdResult<GardenersResponse> {
+fn query_gardeners<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    sender: HumanAddr,
+) -> StdResult<Gardener> {
+    let canonical_addr = deps.api.canonical_address(&sender)?;
+    let response = gardeners_store_readonly(&deps.storage)
+        .may_load(canonical_addr.as_slice());
 
+    match response {
+        Some(response) => Ok(response.unwrap()),
+        None => Err(StdError::not_found("No gardener found with the given address")),
+        _ => {}
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
-
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);
-    }
-
-    #[test]
-    fn increment() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // beneficiary can release it
-        let env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Increment {};
-        let _res = handle(&mut deps, env, msg).unwrap();
-
-        // should increase counter by 1
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(18, value.count);
-    }
-
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies(20, &coins(2, "token"));
-
-        let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(2, "token"));
-        let _res = init(&mut deps, env, msg).unwrap();
-
-        // beneficiary can release it
-        let unauth_env = mock_env("anyone", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let res = handle(&mut deps, unauth_env, msg);
-        match res {
-            Err(StdError::Unauthorized { .. }) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
-
-        // only the original creator can reset the counter
-        let auth_env = mock_env("creator", &coins(2, "token"));
-        let msg = HandleMsg::Reset { count: 5 };
-        let _res = handle(&mut deps, auth_env, msg).unwrap();
-
-        // should now be 5
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(5, value.count);
-    }
-}
+mod tests {}
