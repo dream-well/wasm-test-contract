@@ -1,12 +1,14 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Storage, Coin};
-use cosmwasm_storage::{singleton, singleton_read, ReadonlySingleton, Singleton,
-                       bucket, bucket_read, Bucket, ReadonlyBucket};
+use cosmwasm_std::{CanonicalAddr, Coin, Storage};
+use cosmwasm_storage::{
+    bucket, bucket_read, singleton, singleton_read, Bucket, ReadonlyBucket, ReadonlySingleton,
+    Singleton,
+};
 
-use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 
 pub static BONSAI_KEY: &[u8] = b"bonsai";
 pub static GARDENERS_KEY: &[u8] = b"gardener";
@@ -22,10 +24,7 @@ pub struct Bonsai {
 impl Bonsai {
     // not a method but an associate function
     pub fn new(birth_date: u64, price: Coin) -> Bonsai {
-        let id: String = thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(8)
-            .collect();
+        let id: String = thread_rng().sample_iter(&Alphanumeric).take(8).collect();
 
         Bonsai {
             id,
@@ -37,16 +36,18 @@ impl Bonsai {
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct BonsaiList {
-    pub bonsais: Vec<Bonsai>
+    pub bonsais: Vec<Bonsai>,
 }
 
 impl BonsaiList {
     /// grow some bonsais from a given number, watering each one of those
     pub fn grow_bonsais(number: u32, birth_date: u64, price: Coin) -> BonsaiList {
-        let mut i = 0;
+        let i = 0;
         let mut bonsai_list = BonsaiList { bonsais: vec![] };
         while i < number {
-            bonsai_list.bonsais.push(Bonsai::new(birth_date, price.clone()))
+            bonsai_list
+                .bonsais
+                .push(Bonsai::new(birth_date, price.clone()))
         }
         bonsai_list
     }
