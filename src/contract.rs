@@ -24,7 +24,12 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price);
     bonsai_store(&mut deps.storage).save(&bonsai_list)?;
 
-    Ok(InitResponse::default())
+    let mut res = InitResponse::default();
+    res.log = vec![
+        log("action", "grown_bonsais"),
+    ];
+
+    Ok(res)
 }
 
 pub fn handle<S: Storage, A: Api, Q: Querier>(
@@ -234,4 +239,44 @@ fn query_gardeners<S: Storage, A: Api, Q: Querier>(
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env};
+    use cosmwasm_std::{coin, Coin};
+
+    const CANONICAL_LENGTH: usize = 20;
+
+    fn mock_env_height<U: Into<HumanAddr>>(sender: U, sent: &[Coin], height: u64) -> Env {
+        let mut env = mock_env(sender, sent);
+        env.block.height = height;
+        env
+    }
+
+    // this will set up the init for other tests
+    fn setup_test<S: Storage, A: Api, Q: Querier>(
+        mut deps: &mut Extern<S, A, Q>,
+        env: &Env,
+        bonsai_price: Coin,
+        bonsai_number: u32,
+    ) {
+        let init_msg = InitMsg { price: bonsai_price, number: bonsai_number };
+        init(deps, env.clone(), init_msg).unwrap();
+    }
+
+    #[test]
+    fn test_init() {
+        let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
+
+        // Init an empty contract
+        let init_msg = InitMsg { price: coin(20, "bonsai"), number: 20 };
+        let env = mock_env_height("anyone", &[], 100);
+        let res = init(&mut deps, env, init_msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let exp_log = vec![
+            log("action", "grown_bonsais"),
+        ];
+
+        assert_eq!(res.log, exp_log)
+    }
+}
