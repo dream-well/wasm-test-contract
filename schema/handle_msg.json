@@ -5,33 +5,87 @@
     {
       "type": "object",
       "required": [
-        "increment"
+        "become_gardener"
       ],
       "properties": {
-        "increment": {
-          "type": "object"
+        "become_gardener": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
         }
       }
     },
     {
       "type": "object",
       "required": [
-        "reset"
+        "buy_bonsai"
       ],
       "properties": {
-        "reset": {
+        "buy_bonsai": {
           "type": "object",
           "required": [
-            "count"
+            "b_id"
           ],
           "properties": {
-            "count": {
-              "type": "integer",
-              "format": "int32"
+            "b_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "sell_bonsai"
+      ],
+      "properties": {
+        "sell_bonsai": {
+          "type": "object",
+          "required": [
+            "b_id",
+            "recipient"
+          ],
+          "properties": {
+            "b_id": {
+              "type": "string"
+            },
+            "recipient": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "cut_bonsai"
+      ],
+      "properties": {
+        "cut_bonsai": {
+          "type": "object",
+          "required": [
+            "b_id"
+          ],
+          "properties": {
+            "b_id": {
+              "type": "string"
             }
           }
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }

@@ -3,8 +3,10 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use my_first_contract::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
-use my_first_contract::state::State;
+use my_first_contract::msg::{AllGardenersResponse, HandleMsg, InitMsg, QueryMsg};
+use my_first_contract::state::Bonsai;
+use my_first_contract::state::BonsaiList;
+use my_first_contract::state::Gardener;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -15,6 +17,8 @@ fn main() {
     export_schema(&schema_for!(InitMsg), &out_dir);
     export_schema(&schema_for!(HandleMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(State), &out_dir);
-    export_schema(&schema_for!(CountResponse), &out_dir);
+    export_schema(&schema_for!(Gardener), &out_dir);
+    export_schema(&schema_for!(Bonsai), &out_dir);
+    export_schema(&schema_for!(BonsaiList), &out_dir);
+    export_schema(&schema_for!(AllGardenersResponse), &out_dir);
 }

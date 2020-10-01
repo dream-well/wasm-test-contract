@@ -1,9 +1,9 @@
 use cosmwasm_std::{
     log, to_binary, Api, BankMsg, Binary, Env, Extern, HandleResponse, HumanAddr, InitResponse,
-    Querier, StdError, StdResult, Storage,
+    Order, Querier, StdError, StdResult, Storage,
 };
 
-use crate::msg::{HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{AllGardenersResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{
     bonsai_store, bonsai_store_readonly, gardeners_store, gardeners_store_readonly, BonsaiList,
     Gardener,
@@ -25,9 +25,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     bonsai_store(&mut deps.storage).save(&bonsai_list)?;
 
     let mut res = InitResponse::default();
-    res.log = vec![
-        log("action", "grown_bonsais"),
-    ];
+    res.log = vec![log("action", "grown_bonsais")];
 
     Ok(res)
 }
@@ -56,7 +54,7 @@ pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
         Ok(_) => {
             return Err(StdError::generic_err(
                 "A gardener with the sender address already exist",
-            ))
+            ));
         }
         Err(_) => Gardener::new(name, canonical_addr.clone(), vec![]),
     };
@@ -119,7 +117,7 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
             to_address: env.contract.address,
             amount: vec![bonsai.price.clone()],
         }
-        .into()],
+            .into()],
         log: vec![
             log("action", "buy_bonsai"),
             log("buyer", env.message.sender),
@@ -214,7 +212,8 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetBonsais {} => to_binary(&query_bonsais(deps)?),
-        QueryMsg::GetGardeners { sender } => to_binary(&query_gardeners(deps, sender)?),
+        QueryMsg::GetGardener { sender } => to_binary(&query_gardener(deps, sender)?),
+        QueryMsg::GetGardeners {} => to_binary(&query_all_gardeners(deps)),
     }
 }
 
@@ -223,7 +222,7 @@ fn query_bonsais<S: Storage, A: Api, Q: Querier>(deps: &Extern<S, A, Q>) -> StdR
     Ok(bonsais)
 }
 
-fn query_gardeners<S: Storage, A: Api, Q: Querier>(
+fn query_gardener<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
     sender: HumanAddr,
 ) -> StdResult<Gardener> {
@@ -238,9 +237,22 @@ fn query_gardeners<S: Storage, A: Api, Q: Querier>(
     }
 }
 
+fn query_all_gardeners<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<AllGardenersResponse> {
+    let res: StdResult<Vec<Gardener>> = gardeners_store_readonly(&deps.storage)
+        .range(None, None, Order::Ascending)
+        .map(|item| item.and_then(|(_k, gardener)| Ok(gardener)))
+        .collect();
+
+    Ok(AllGardenersResponse { gardeners: res? })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::Bonsai;
+    use assert::equal;
     use cosmwasm_std::testing::{mock_dependencies, mock_env};
     use cosmwasm_std::{coin, Coin};
 
@@ -254,12 +266,15 @@ mod tests {
 
     // this will set up the init for other tests
     fn setup_test<S: Storage, A: Api, Q: Querier>(
-        mut deps: &mut Extern<S, A, Q>,
+        deps: &mut Extern<S, A, Q>,
         env: &Env,
         bonsai_price: Coin,
         bonsai_number: u32,
     ) {
-        let init_msg = InitMsg { price: bonsai_price, number: bonsai_number };
+        let init_msg = InitMsg {
+            price: bonsai_price,
+            number: bonsai_number,
+        };
         init(deps, env.clone(), init_msg).unwrap();
     }
 
@@ -268,15 +283,118 @@ mod tests {
         let mut deps = mock_dependencies(CANONICAL_LENGTH, &[]);
 
         // Init an empty contract
-        let init_msg = InitMsg { price: coin(20, "bonsai"), number: 20 };
+        let init_msg = InitMsg {
+            price: coin(20, "bonsai"),
+            number: 20,
+        };
         let env = mock_env_height("anyone", &[], 100);
         let res = init(&mut deps, env, init_msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let exp_log = vec![
-            log("action", "grown_bonsais"),
-        ];
+        let exp_log = vec![log("action", "grown_bonsais")];
 
         assert_eq!(res.log, exp_log)
+    }
+
+    #[test]
+    fn test_become_gardener_works() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let sender_addr = HumanAddr::from("addr0001");
+        let bonsai_price = coin(10, "bonsai");
+        let bonsai_height = 100;
+        let env = mock_env_height(&sender_addr, &[], bonsai_height);
+        setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+
+        let mut exp_res = HandleResponse::default();
+        exp_res.log = vec![
+            log("action", "become_gardener"),
+            log("gardener_addr", &sender_addr),
+        ];
+
+        let msg = HandleMsg::BecomeGardener {
+            name: String::from("leo"),
+        };
+        let res = handle(&mut deps, env.clone(), msg);
+
+        // verify it not fails
+        assert!(res.is_ok());
+
+        assert_eq!(exp_res, res.unwrap())
+    }
+
+    #[test]
+    fn query_bonsais_works() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let sender_addr = HumanAddr::from("addr0001");
+        let bonsai_price = coin(10, "bonsai");
+        let bonsai_height = 100;
+        let env = mock_env_height(sender_addr, &[], bonsai_height);
+        setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+
+        let bonsais = query_bonsais(&deps).unwrap();
+
+        assert_eq!(10, bonsais.bonsais.len())
+    }
+
+    #[test]
+    fn query_gardener_works() {
+        let mut deps = mock_dependencies(20, &[]);
+        let sender_addr = HumanAddr::from("addr0001");
+        let bonsai_price = coin(10, "bonsai");
+        let bonsai_height = 100;
+
+        let env = mock_env_height(&sender_addr, &[], bonsai_height);
+        setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+
+        let bonsai = Bonsai::new(bonsai_height, bonsai_price);
+        let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
+
+        let gardener = Gardener::new("leo".to_string(), canonical_addr.clone(), vec![bonsai]);
+
+        let _ = gardeners_store(&mut deps.storage).save(canonical_addr.as_slice(), &gardener);
+
+        let res = query_gardener(&deps, sender_addr.clone());
+
+        assert_eq!(gardener, res.unwrap())
+    }
+
+    #[test]
+    fn query_all_gardeners_works() {
+        let mut deps = mock_dependencies(20, &[]);
+        let sender_addr = HumanAddr::from("addr0001");
+        let bonsai_price = coin(10, "bonsai");
+        let bonsai_height = 100;
+
+        let env = mock_env_height(&sender_addr, &[], bonsai_height);
+        setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+
+        let bonsai = Bonsai::new(bonsai_height, bonsai_price);
+        let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
+        let other_addr = HumanAddr::from("addr0002");
+        let other_addr = &deps.api.canonical_address(&other_addr).unwrap();
+
+        let gardener = Gardener::new(
+            "leo".to_string(),
+            canonical_addr.clone(),
+            vec![bonsai.clone()],
+        );
+
+        let gardener2 = Gardener::new(
+            "ricky".to_string(),
+            other_addr.clone(),
+            vec![bonsai.clone()],
+        );
+
+        let gardeners = vec![gardener.clone(), gardener2.clone()];
+
+        for el in gardeners.clone() {
+            let _ = gardeners_store(&mut deps.storage).save(el.address.as_slice(), &el);
+        }
+
+        let res = query_all_gardeners(&deps);
+
+        equal(gardeners, res.unwrap().gardeners);
     }
 }

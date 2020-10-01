@@ -5,13 +5,48 @@
     {
       "type": "object",
       "required": [
-        "get_count"
+        "get_bonsais"
       ],
       "properties": {
-        "get_count": {
+        "get_bonsais": {
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_gardener"
+      ],
+      "properties": {
+        "get_gardener": {
+          "type": "object",
+          "required": [
+            "sender"
+          ],
+          "properties": {
+            "sender": {
+              "$ref": "#/definitions/HumanAddr"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_gardeners"
+      ],
+      "properties": {
+        "get_gardeners": {
           "type": "object"
         }
       }
     }
-  ]
+  ],
+  "definitions": {
+    "HumanAddr": {
+      "type": "string"
+    }
+  }
 }

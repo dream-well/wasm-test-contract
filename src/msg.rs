@@ -1,3 +1,4 @@
+use crate::state::Gardener;
 use cosmwasm_std::{Coin, HumanAddr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -21,5 +22,11 @@ pub enum HandleMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetBonsais {},
-    GetGardeners { sender: HumanAddr },
+    GetGardener { sender: HumanAddr },
+    GetGardeners {},
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AllGardenersResponse {
+    pub gardeners: Vec<Gardener>,
 }

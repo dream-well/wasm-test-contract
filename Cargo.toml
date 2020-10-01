@@ -37,6 +37,7 @@ schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 snafu = { version = "0.6.3" }
 rand = { version = "0.6.0" }
+assert = { version = "0.2.1" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "0.10.1" }

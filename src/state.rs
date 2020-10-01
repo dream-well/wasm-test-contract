@@ -95,12 +95,12 @@ pub fn gardeners_store_readonly<S: Storage>(storage: &S) -> ReadonlyBucket<S, Ga
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::{coin, Api, HumanAddr};
     use cosmwasm_std::testing::MockApi;
+    use cosmwasm_std::{coin, Api, HumanAddr};
 
     #[test]
     fn new_bonsai() {
-        let mut exp_bonsai = Bonsai{
+        let mut exp_bonsai = Bonsai {
             id: "".to_string(),
             birth_date: 100,
             price: coin(145, "testCoin"),
@@ -117,16 +117,17 @@ mod tests {
     fn new_gardener() {
         let api = MockApi::new(20);
 
-        let exp_gardener = Gardener{
+        let exp_gardener = Gardener {
             name: "leo".to_string(),
             address: api.canonical_address(&HumanAddr::from("addr")).unwrap(),
-            bonsais: vec![]
+            bonsais: vec![],
         };
 
         let cur_gardener = Gardener::new(
             exp_gardener.name.clone(),
             exp_gardener.address.clone(),
-            vec![]);
+            vec![],
+        );
 
         assert_eq!(exp_gardener, cur_gardener)
     }
@@ -134,11 +135,7 @@ mod tests {
     #[test]
     fn grow_bonsais() {
         let bonsai_number = 4;
-        let bonsai_list = BonsaiList::grow_bonsais(
-            bonsai_number,
-            10,
-            coin(145, "testCoin")
-        );
+        let bonsai_list = BonsaiList::grow_bonsais(bonsai_number, 10, coin(145, "testCoin"));
 
         assert_eq!(4, bonsai_list.bonsais.len())
     }
