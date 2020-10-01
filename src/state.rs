@@ -16,8 +16,8 @@ pub static GARDENERS_KEY: &[u8] = b"gardener";
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Bonsai {
     pub id: String,
-    pub birth_date: u64,
     // block height at which the bonsai was created
+    pub birth_date: u64,
     pub price: Coin,
 }
 
@@ -42,12 +42,13 @@ pub struct BonsaiList {
 impl BonsaiList {
     /// grow some bonsais from a given number, watering each one of those
     pub fn grow_bonsais(number: u32, birth_date: u64, price: Coin) -> BonsaiList {
-        let i = 0;
+        let mut i = 0;
         let mut bonsai_list = BonsaiList { bonsais: vec![] };
         while i < number {
             bonsai_list
                 .bonsais
-                .push(Bonsai::new(birth_date, price.clone()))
+                .push(Bonsai::new(birth_date, price.clone()));
+            i += 1;
         }
         bonsai_list
     }
@@ -92,4 +93,53 @@ pub fn gardeners_store_readonly<S: Storage>(storage: &S) -> ReadonlyBucket<S, Ga
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use cosmwasm_std::{coin, Api, HumanAddr};
+    use cosmwasm_std::testing::MockApi;
+
+    #[test]
+    fn new_bonsai() {
+        let mut exp_bonsai = Bonsai{
+            id: "".to_string(),
+            birth_date: 100,
+            price: coin(145, "testCoin"),
+        };
+
+        let cur_bonsai = Bonsai::new(100, exp_bonsai.price.clone());
+
+        exp_bonsai.id = cur_bonsai.id.clone();
+
+        assert_eq!(exp_bonsai, cur_bonsai)
+    }
+
+    #[test]
+    fn new_gardener() {
+        let api = MockApi::new(20);
+
+        let exp_gardener = Gardener{
+            name: "leo".to_string(),
+            address: api.canonical_address(&HumanAddr::from("addr")).unwrap(),
+            bonsais: vec![]
+        };
+
+        let cur_gardener = Gardener::new(
+            exp_gardener.name.clone(),
+            exp_gardener.address.clone(),
+            vec![]);
+
+        assert_eq!(exp_gardener, cur_gardener)
+    }
+
+    #[test]
+    fn grow_bonsais() {
+        let bonsai_number = 4;
+        let bonsai_list = BonsaiList::grow_bonsais(
+            bonsai_number,
+            10,
+            coin(145, "testCoin")
+        );
+
+        assert_eq!(4, bonsai_list.bonsais.len())
+    }
+}
