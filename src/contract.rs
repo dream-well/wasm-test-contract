@@ -195,7 +195,7 @@ pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
     id: String,
 ) -> StdResult<HandleResponse> {
     let owner_addr = deps.api.canonical_address(&env.message.sender)?;
-    remove_bonsai(deps, owner_addr.clone(), id.clone());
+    remove_bonsai(deps, owner_addr, id.clone());
 
     let mut res = HandleResponse::default();
     res.log = vec![
@@ -243,7 +243,7 @@ fn query_all_gardeners<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<AllGardenersResponse> {
     let res: StdResult<Vec<Gardener>> = gardeners_store_readonly(&deps.storage)
         .range(None, None, Order::Ascending)
-        .map(|item| item.and_then(|(_k, gardener)| Ok(gardener)))
+        .map(|item| item.map(|(_k, gardener)| gardener))
         .collect();
 
     Ok(AllGardenersResponse { gardeners: res? })
