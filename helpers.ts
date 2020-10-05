@@ -2,7 +2,7 @@
  * This is a set of helpers meant for use with @cosmjs/cli
  * With these you can easily use the bonsai contract without worrying about forming messages and parsing queries.
  *
- * Usage: npx @cosmjs/cli --init https://github.com/CosmWasm/cosmwasm-plus/blob/master/contracts/cw1-subkeys/helpers.ts
+ * Usage: npx @cosmjs/cli --init https://github.com/bragaz/wasm-test-contract/tree/master/helper.ts
  *
  * Create a client:
  *   const client = await useOptions(coralnetOptions).setup(password);
@@ -138,7 +138,7 @@ type Expiration = { at_height: { height: number } } | { at_time: { time: number 
 interface Bonsai {
   readonly id: string,
   readonly birth_date: number,
-  readonly coin: Coin;
+  readonly price: Coin;
 }
 
 interface BonsaiList {
@@ -158,55 +158,6 @@ interface AllGardenersResponse {
 interface InitMsg {
   readonly price: Coin,
   readonly number: number,
-}
-
-type CosmosMsg = SendMsg | DelegateMsg | UndelegateMsg | RedelegateMsg | WithdrawMsg
-
-interface SendMsg {
-  readonly bank: {
-    readonly send: {
-      readonly from_address: string,
-      readonly to_address: string,
-      readonly amount: readonly Coin[],
-    }
-  }
-}
-
-interface DelegateMsg {
-  readonly staking: {
-    readonly delegate: {
-      readonly validator: string,
-      readonly amount: Coin,
-    }
-  }
-}
-
-interface UndelegateMsg {
-  readonly staking: {
-    readonly undelegate: {
-      readonly validator: string,
-      readonly amount: Coin,
-    }
-  }
-}
-
-interface RedelegateMsg {
-  readonly staking: {
-    readonly redelegate: {
-      readonly src_validator: string,
-      readonly dst_validator: string,
-      readonly amount: Coin,
-    }
-  }
-}
-
-interface WithdrawMsg {
-  readonly staking: {
-    readonly withdraw: {
-      readonly validator: string,
-      readonly recipient?: string,
-    }
-  }
 }
 
 interface BonsaiInstance {
@@ -294,10 +245,10 @@ const bonsaiCW = (client: SigninfCosmWasmClient) : BonsaiContract => {
 
   const upload = async (): Promise<number> => {
     const meta = {
-      source: "",
+      source: "https://github.com/bragaz/wasm-test-contract/tree/v0.1.0",
       builder: "cosmwasm/rust-optimizer:0.10.3"
     };
-    const sourceUrl = "";
+    const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.0/my_first_contract.wasm";
     const wasm = await downloadWasm(sourceUrl);
     const result = await client.upload(wasm, meta);
     return result.codeId;
