@@ -188,19 +188,19 @@ interface BonsaiContract {
   use: (contractAddress: string) => BonsaiInstance
 }
 
-const bonsaiCW = (client: SigninfCosmWasmClient) : BonsaiContract => {
+const bonsaiCW = (client: SigningCosmWasmClient) : BonsaiContract => {
   const use = (contractAddress: string): BonsaiInstance => {
     const getBonsais = async (): Promise<BonsaiList> => {
-      return client.queryContractSmart(contractAddress, {get_bonsais: {}});
+      return await client.queryContractSmart(contractAddress, {get_bonsais: {}});
     }
 
     const getGardener = async (address?: string): Promise<Gardener> => {
       const sender = address || client.senderAddress;
-      return client.queryContractSmart(contractAddress, {get_gardener: {sender}});
+      return await client.queryContractSmart(contractAddress, {get_gardener: {sender}});
     }
 
     const getGardeners = async () : Promise<AllGardenersResponse> => {
-      return client.queryContractSmart(contractAddress, {get_gardeners: {}});
+      return await client.queryContractSmart(contractAddress, {get_gardeners: {}});
     }
 
     const becomeGardener = async (name: string): Promise<string> => {
@@ -245,10 +245,10 @@ const bonsaiCW = (client: SigninfCosmWasmClient) : BonsaiContract => {
 
   const upload = async (): Promise<number> => {
     const meta = {
-      source: "https://github.com/bragaz/wasm-test-contract/tree/v0.1.0",
+      source: "https://github.com/bragaz/wasm-test-contract/tree/v0.1.1",
       builder: "cosmwasm/rust-optimizer:0.10.3"
     };
-    const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.0/my_first_contract.wasm";
+    const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.1/my_first_contract.wasm";
     const wasm = await downloadWasm(sourceUrl);
     const result = await client.upload(wasm, meta);
     return result.codeId;
