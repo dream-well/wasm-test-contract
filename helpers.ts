@@ -75,7 +75,7 @@ const useOptions = (options: Options): Network => {
 
     return {
       upload: stdFee(1500000, feeToken, gasPrice),
-      init: stdFee(600000, feeToken, gasPrice),
+      init: stdFee(15000000, feeToken, gasPrice),
       migrate: stdFee(600000, feeToken, gasPrice),
       exec: stdFee(200000, feeToken, gasPrice),
       send: stdFee(80000, feeToken, gasPrice),
@@ -262,3 +262,17 @@ const bonsaiCW = (client: SigningCosmWasmClient) : BonsaiContract => {
   return { upload, instantiate, use };
 
 }
+
+// Example:
+// const client = await useOptions(coralnetOptions).setup("12345678");
+// const { address } = await client.getAccount()
+// const factory = bonsaiCW(client)
+//
+// const codeId = await factory.upload();
+// const contract = await factory.instantiate(codeId, {number: 5, price: {denom: "ushell", amount: "1"}}, "Bonsai")
+// contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
+//
+// OR
+//
+// const contract = factory.use('coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd')
+//
