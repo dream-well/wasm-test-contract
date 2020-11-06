@@ -19,7 +19,7 @@ fn new_bonsai() {
 
 #[test]
 fn new_gardener() {
-    let api = MockApi::new(20);
+    let api = MockApi::default();
 
     let exp_gardener = Gardener {
         name: "leo".to_string(),

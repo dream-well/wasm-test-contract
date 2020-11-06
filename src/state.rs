@@ -84,10 +84,10 @@ impl Gardener {
 
 /// return a writable gardeners' bucket
 pub fn gardeners_store<S: Storage>(storage: &mut S) -> Bucket<S, Gardener> {
-    bucket(GARDENERS_KEY, storage)
+    bucket(storage, GARDENERS_KEY)
 }
 
 /// return a read-only gardeners' bucket
 pub fn gardeners_store_readonly<S: Storage>(storage: &S) -> ReadonlyBucket<S, Gardener> {
-    bucket_read(GARDENERS_KEY, storage)
+    bucket_read(storage, GARDENERS_KEY)
 }
