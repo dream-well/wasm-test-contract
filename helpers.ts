@@ -5,11 +5,11 @@
  * Usage: npx @cosmjs/cli --init https://github.com/bragaz/wasm-test-contract/tree/master/helper.ts
  *
  * Create a client:
- *   const client = await useOptions(coralnetOptions).setup(password);
+ *   const client = await useOptions(heldernetOptions).setup(password);
  *   await client.getAccount()
  *
  * Get the mnemonic:
- *   await useOptions(coralnetOptions).recoverMnemonic(password)
+ *   await useOptions(heldernetOptions).recoverMnemonic(password)
  *
  * If you want to use this code inside an app, you will need several imports from https://github.com/CosmWasm/cosmjs
  */
@@ -28,16 +28,16 @@ interface Options {
   readonly defaultKeyFile: string
 }
 
-const coralnetOptions: Options = {
-  httpUrl: 'https://lcd.coralnet.cosmwasm.com',
-  networkId: 'cosmwasm-coral',
-  feeToken: 'ushell',
+const heldernetOptions: Options = {
+  httpUrl: 'https://lcd.heldernet.cosmwasm.com',
+  networkId: 'hackatom-wasm',
+  feeToken: 'ucosm',
   gasPrice: 0.025,
-  bech32prefix: 'coral',
-  faucetToken: 'SHELL',
-  faucetUrl: 'https://faucet.coralnet.cosmwasm.com/credit',
+  bech32prefix: 'cosmos',
+  faucetToken: 'COSM',
+  faucetUrl: 'https://faucet.heldernet.cosmwasm.com/credit',
   hdPath: makeCosmoshubPath(0),
-  defaultKeyFile: path.join(process.env.HOME, ".coral.key"),
+  defaultKeyFile: path.join(process.env.HOME, ".helder.key"),
 }
 
 interface Network {
@@ -109,8 +109,8 @@ const useOptions = (options: Options): Network => {
 
   const setup = async (password: string, filename?: string): Promise<SigningCosmWasmClient> => {
     const keyfile = filename || options.defaultKeyFile;
-    const wallet = await loadOrCreateWallet(coralnetOptions, keyfile, password);
-    const client = await connect(wallet, coralnetOptions);
+    const wallet = await loadOrCreateWallet(heldernetOptions, keyfile, password);
+    const client = await connect(wallet, heldernetOptions);
 
     // ensure we have some tokens
     if (options.faucetUrl) {
@@ -126,7 +126,7 @@ const useOptions = (options: Options): Network => {
 
   const recoverMnemonic = async (password: string, filename?: string): Promise<string> => {
     const keyfile = filename || options.defaultKeyFile;
-    const wallet = await loadOrCreateWallet(coralnetOptions, keyfile, password);
+    const wallet = await loadOrCreateWallet(heldernetOptions, keyfile, password);
     return wallet.mnemonic;
   }
 
@@ -265,9 +265,9 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // Example:
 // const client = await useOptions(coralnetOptions).setup("12345678");
 // const { address } = await client.getAccount()
-// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.2"
+// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.3"
 // const optimizerPath = "cosmwasm/rust-optimizer:0.10.4"
-// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.2/my_first_contract.wasm"
+// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.3/my_first_contract.wasm"
 // const factory = bonsaiCW(client, metaSourcePath, optimizerPath, sourceUrl)
 // const codeId = await factory.upload();
 // const contract = await factory.instantiate(codeId, {number: 5, price: {denom: "ushell", amount: "1"}}, "Bonsai")

@@ -11,5 +11,5 @@ mod state_tests;
 // This includes custom errors
 pub mod errors;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "library")))]
+#[cfg(target_arch = "wasm32")]
 cosmwasm_std::create_entry_points!(contract);
