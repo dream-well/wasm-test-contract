@@ -246,7 +246,7 @@ const bonsaiCW = (client: SigningCosmWasmClient) : BonsaiContract => {
   const upload = async (): Promise<number> => {
     const meta = {
       source: "https://github.com/bragaz/wasm-test-contract/tree/v0.1.1",
-      builder: "cosmwasm/rust-optimizer:0.10.3"
+      builder: "cosmwasm/rust-optimizer:0.10.4"
     };
     const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.1/my_first_contract.wasm";
     const wasm = await downloadWasm(sourceUrl);

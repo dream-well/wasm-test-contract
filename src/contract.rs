@@ -19,6 +19,7 @@ use crate::state::{
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
+    _info: MessageInfo,
     msg: InitMsg,
 ) -> Result<InitResponse, MyCustomError> {
     // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -223,6 +224,7 @@ pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
 
 pub fn query<S: Storage, A: Api, Q: Querier>(
     deps: &Extern<S, A, Q>,
+    _env: Env,
     msg: QueryMsg,
 ) -> StdResult<Binary> {
     match msg {
