@@ -49,7 +49,8 @@ fn setup_test<S: Storage, A: Api, Q: Querier>(
         price: bonsai_price,
         number: bonsai_number,
     };
-    init(deps, env.clone(), init_msg).unwrap();
+    let sender_addr = HumanAddr::from("addr0001");
+    init(deps, env.clone(), mock_info(&sender_addr, &[]), init_msg).unwrap();
 }
 
 // return a random bonsai id
@@ -69,8 +70,9 @@ fn test_init() {
         price: coin(20, "bonsai"),
         number: 20,
     };
+    let sender_addr = HumanAddr::from("addr0001");
     let env = mock_env_height(100);
-    let res = init(&mut deps, env, init_msg).unwrap();
+    let res = init(&mut deps, env, mock_info(&sender_addr, &[]), init_msg).unwrap();
     assert_eq!(0, res.messages.len());
 
     let exp_log = vec![attr("action", "grown_bonsais")];
