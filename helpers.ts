@@ -265,9 +265,9 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // Example:
 // const client = await useOptions(coralnetOptions).setup("12345678");
 // const { address } = await client.getAccount()
-// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.3"
+// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.4"
 // const optimizerPath = "cosmwasm/rust-optimizer:0.10.4"
-// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.3/my_first_contract.wasm"
+// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.4/my_first_contract.wasm"
 // const factory = bonsaiCW(client, metaSourcePath, optimizerPath, sourceUrl)
 // const codeId = await factory.upload();
 // const contract = await factory.instantiate(codeId, {number: 5, price: {denom: "ushell", amount: "1"}}, "Bonsai")
