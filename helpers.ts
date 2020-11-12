@@ -232,7 +232,7 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 }
 
 // Example:
-// const mnemonic = "<your mnemonic here>"
+// const mnemonic = "use favorite source endless faculty sauce clean core below squirrel profit creek either sign chef giggle ahead stool secret mouse prepare oven more item"
 // const result = connect(mnemonic, defaultOptions)
 // const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.4"
 // const optimizerPath = "cosmwasm/rust-optimizer:0.10.4"
@@ -241,7 +241,7 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // hitFaucet(defaultFaucetUrl, resolvedResult.address, defaultOptions.feeToken)
 // const factory = bonsaiCW(resolvedResult.client, metaSourcePath, optimizerPath, sourceUrl)
 // const codeId = await factory.upload();
-// const contract = await factory.instantiate(codeId, {number: 5, price: {denom: "ushell", amount: "1"}}, "Bonsai")
+// const contract = await factory.instantiate(codeId, {price: {denom: "ucosm", amount: "5"}, number: 5}, "Bonsai")
 // contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
 //
 // OR

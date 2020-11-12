@@ -1,6 +1,6 @@
 use crate::contract::{handle, init, query_all_gardeners, query_bonsais, query_gardener};
 use crate::msg::{HandleMsg, InitMsg};
-use crate::state::{gardeners_store, Bonsai, Gardener};
+use crate::state::{bonsai_store_readonly, gardeners_store, Bonsai, Gardener};
 use assert::equal;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
 use cosmwasm_std::{
@@ -43,7 +43,7 @@ fn setup_test<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
     bonsai_price: Coin,
-    bonsai_number: u32,
+    bonsai_number: u128,
 ) {
     let init_msg = InitMsg {
         price: bonsai_price,
@@ -77,7 +77,11 @@ fn test_init() {
 
     let exp_log = vec![attr("action", "grown_bonsais")];
 
-    assert_eq!(res.attributes, exp_log)
+    assert_eq!(res.attributes, exp_log);
+
+    // make sure that bonsais are saved inside the store
+    let bonsais = bonsai_store_readonly(&deps.storage).load().unwrap();
+    assert_eq!(20, bonsais.bonsais.len())
 }
 
 #[test]
