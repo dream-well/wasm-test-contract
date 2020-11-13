@@ -38,6 +38,6 @@ fn new_gardener() {
 
 #[test]
 fn grow_bonsais() {
-    let bonsai_list = BonsaiList::grow_bonsais(4, 10, coin(145, "testCoin"));
+    let bonsai_list = BonsaiList::grow_bonsais(4, 415000, coin(145, "testCoin"));
     assert_eq!(4, bonsai_list.bonsais.len())
 }

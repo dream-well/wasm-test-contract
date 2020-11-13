@@ -41,7 +41,7 @@ pub struct BonsaiList {
 
 impl BonsaiList {
     /// grow some bonsais from a given number, watering each one of those
-    pub fn grow_bonsais(number: u128, birth_date: u64, price: Coin) -> BonsaiList {
+    pub fn grow_bonsais(number: u64, birth_date: u64, price: Coin) -> BonsaiList {
         let mut i = 0;
         let mut bonsai_list = BonsaiList { bonsais: vec![] };
         while i < number {

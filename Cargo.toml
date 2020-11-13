@@ -27,8 +27,11 @@ incremental = false
 overflow-checks = true
 
 [features]
+default = ["cranelift"]
 # for more explicit tests, cargo test --features=backtraces
 backtraces = ["cosmwasm-std/backtraces"]
+cranelift = ["cosmwasm-vm/default-cranelift"]
+singlepass = ["cosmwasm-vm/default-singlepass"]
 
 [dependencies]
 cosmwasm-std = { version = "0.11.2", features = ["iterator", "staking"] }
@@ -41,6 +44,7 @@ assert = { version = "0.2.1" }
 thiserror = { version = "1.0.22" }
 
 [dev-dependencies]
+cosmwasm-vm = { version = "0.11.1", default-features = false }
 cosmwasm-schema = { version = "0.11.2" }
 
 

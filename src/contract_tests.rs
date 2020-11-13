@@ -43,7 +43,7 @@ fn setup_test<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
     bonsai_price: Coin,
-    bonsai_number: u128,
+    bonsai_number: u64,
 ) {
     let init_msg = InitMsg {
         price: bonsai_price,
