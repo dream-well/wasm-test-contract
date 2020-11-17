@@ -1,16 +1,16 @@
-use crate::state::{Bonsai, BonsaiList, Gardener};
+use crate::state::{Bonsai, Gardener};
 use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{coin, Api, HumanAddr};
 
 #[test]
 fn new_bonsai() {
     let mut exp_bonsai = Bonsai {
-        id: "".to_string(),
+        id: 1,
         birth_date: 100,
         price: coin(145, "testCoin"),
     };
 
-    let cur_bonsai = Bonsai::new(100, exp_bonsai.price.clone());
+    let cur_bonsai = Bonsai::new(1,100, exp_bonsai.price.clone());
 
     exp_bonsai.id = cur_bonsai.id.clone();
 
@@ -38,6 +38,6 @@ fn new_gardener() {
 
 #[test]
 fn grow_bonsais() {
-    let bonsai_list = BonsaiList::grow_bonsais(4, 415000, coin(145, "testCoin"));
-    assert_eq!(4, bonsai_list.bonsais.len())
+    //let bonsai_list = BonsaiList::grow_bonsais(20, 100, coin(20, "bonsai"), mock_dependencies(&[]););
+    //assert_eq!(20, bonsai_list.bonsais.len())
 }

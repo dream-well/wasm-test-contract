@@ -13,9 +13,9 @@ pub struct InitMsg {
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
     BecomeGardener { name: String },
-    BuyBonsai { b_id: String },
-    SellBonsai { recipient: HumanAddr, b_id: String },
-    CutBonsai { b_id: String },
+    BuyBonsai { b_id: u64 },
+    SellBonsai { recipient: HumanAddr, b_id: u64 },
+    CutBonsai { b_id: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

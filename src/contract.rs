@@ -23,12 +23,10 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> Result<InitResponse, MyCustomError> {
     // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price);
+    let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price.clone());
     bonsai_store(&mut deps.storage).save(&bonsai_list)?;
-
     let mut res = InitResponse::default();
     res.attributes = vec![attr("action", "grown_bonsais")];
-
     Ok(res)
 }
 
@@ -78,7 +76,7 @@ pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
 fn remove_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     address: CanonicalAddr,
-    bonsai_id: String,
+    bonsai_id: u64,
 ) {
     let _ = gardeners_store(&mut deps.storage).update::<_, StdError>(
         address.as_slice(),
@@ -94,7 +92,7 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
     info: MessageInfo,
-    id: String,
+    id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
     // try to load bonsai list if present otherwise returns error
     let bonsai_list = bonsai_store(&mut deps.storage).load()?;
@@ -109,7 +107,10 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     // check if the gardener has enough funds to buy the bonsai
     let denom = deps.querier.query_bonded_denom()?;
     let balance = deps.querier.query_balance(&info.sender, &denom.as_str())?;
+    deps.api.debug(info.sender.clone().as_str());
     if balance.amount < bonsai.price.amount {
+        deps.api.debug(balance.amount.clone().to_string().as_str());
+        deps.api.debug(bonsai.price.amount.clone().to_string().as_str());
         return Err(MyCustomError::Std(StdError::generic_err(
             "Insufficient funds to buy the bonsai",
         )));
@@ -155,7 +156,7 @@ pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     info: MessageInfo,
     buyer: HumanAddr,
-    id: String,
+    id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
     // convert human_addr to canonical
     let seller_addr = &deps.api.canonical_address(&info.sender)?;
@@ -207,10 +208,10 @@ pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
 pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     info: MessageInfo,
-    id: String,
+    id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
     let owner_addr = deps.api.canonical_address(&info.sender)?;
-    remove_bonsai(deps, owner_addr, id.clone());
+    remove_bonsai(deps, owner_addr, id);
 
     let mut res = HandleResponse::default();
     res.attributes = vec![

@@ -54,11 +54,11 @@ fn setup_test<S: Storage, A: Api, Q: Querier>(
 }
 
 // return a random bonsai id
-fn get_random_bonsai_id<S: Storage, A: Api, Q: Querier>(deps: &mut Extern<S, A, Q>) -> String {
+fn get_random_bonsai_id<S: Storage, A: Api, Q: Querier>(deps: &mut Extern<S, A, Q>) -> u64 {
     let bonsais = query_bonsais(deps).unwrap().bonsais;
     let rand_bonsai = bonsais.choose(&mut rand::thread_rng()).unwrap();
 
-    rand_bonsai.id.clone()
+    rand_bonsai.id
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn test_cut_bonsai_works() {
     setup_test(&mut deps, &env, bonsai_price.clone(), 10);
 
     let canonical_addr = &deps.api.canonical_address(&info.sender.clone()).unwrap();
-    let bonsai = Bonsai::new(bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
     let gardener = Gardener::new(
         "leo".to_string(),
         canonical_addr.clone(),
@@ -290,7 +290,7 @@ fn query_gardener_works() {
     let env = mock_env_height(bonsai_height);
     setup_test(&mut deps, &env, bonsai_price.clone(), 10);
 
-    let bonsai = Bonsai::new(bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
     let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
 
     let gardener = Gardener::new("leo".to_string(), canonical_addr.clone(), vec![bonsai]);
@@ -312,7 +312,7 @@ fn query_all_gardeners_works() {
     let env = mock_env_height(bonsai_height);
     setup_test(&mut deps, &env, bonsai_price.clone(), 10);
 
-    let bonsai = Bonsai::new(bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
     let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
     let other_addr = HumanAddr::from("addr0002");
     let other_addr = &deps.api.canonical_address(&other_addr).unwrap();

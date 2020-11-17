@@ -7,15 +7,12 @@ use cosmwasm_storage::{
     Singleton,
 };
 
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
-
 pub static BONSAI_KEY: &[u8] = b"bonsai";
 pub static GARDENERS_KEY: &[u8] = b"gardener";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Bonsai {
-    pub id: String,
+    pub id: u64,
     // block height at which the bonsai was created
     pub birth_date: u64,
     pub price: Coin,
@@ -23,9 +20,7 @@ pub struct Bonsai {
 
 impl Bonsai {
     // not a method but an associate function
-    pub fn new(birth_date: u64, price: Coin) -> Bonsai {
-        let id: String = thread_rng().sample_iter(&Alphanumeric).take(8).collect();
-
+    pub fn new(id: u64, birth_date: u64, price: Coin) -> Bonsai {
         Bonsai {
             id,
             birth_date,
@@ -43,14 +38,12 @@ impl BonsaiList {
     /// grow some bonsais from a given number, watering each one of those
     pub fn grow_bonsais(number: u64, birth_date: u64, price: Coin) -> BonsaiList {
         let mut i = 0;
-        let mut bonsai_list = BonsaiList { bonsais: vec![] };
+        let mut bonsais: Vec<Bonsai> = Vec::with_capacity(number as usize);
         while i < number {
-            bonsai_list
-                .bonsais
-                .push(Bonsai::new(birth_date, price.clone()));
+            bonsais.push(Bonsai::new(i, birth_date, price.clone()));
             i += 1;
         }
-        bonsai_list
+        BonsaiList{ bonsais }
     }
 }
 

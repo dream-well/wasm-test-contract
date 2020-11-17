@@ -21,9 +21,7 @@ use cosmwasm_std::{
     HandleResponse, HumanAddr, InitResponse, MessageInfo, QueryResponse,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cosmwasm_vm::testing::{
-    handle, init, mock_env, mock_info, mock_instance, query, MockApi, MockQuerier, MockStorage,
-};
+use cosmwasm_vm::testing::{handle, init, mock_env, mock_info, mock_instance, query, MockApi, MockQuerier, MockStorage, mock_instance_with_balances};
 use cosmwasm_vm::{Instance, Storage};
 use my_first_contract::msg::{HandleMsg, InitMsg, QueryMsg};
 use my_first_contract::state::{BonsaiList, Gardener, BONSAI_KEY};
@@ -44,6 +42,7 @@ fn mock_env_height(height: u64) -> Env {
 fn setup_test(
     deps: &mut Instance<MockStorage, MockApi, MockQuerier>,
     env: &Env,
+    info: MessageInfo,
     bonsai_price: Coin,
     bonsai_number: u64,
 ) {
@@ -51,18 +50,17 @@ fn setup_test(
         price: bonsai_price,
         number: bonsai_number,
     };
-    let info = mock_info("creator", &coins(10, BOND_DENOM));
     let _res: InitResponse = init(deps, env.clone(), info, init_msg).unwrap();
 }
 
 // return a random bonsai id
-fn get_random_bonsai_id(deps: &mut Instance<MockStorage, MockApi, MockQuerier>) -> String {
+fn get_random_bonsai_id(deps: &mut Instance<MockStorage, MockApi, MockQuerier>) -> u64 {
     let result = query(deps, mock_env(), QueryMsg::GetBonsais {}).unwrap();
 
     let bonsais: BonsaiList = from_binary(&result).unwrap();
     let rand_bonsai = bonsais.bonsais.choose(&mut rand::thread_rng()).unwrap();
 
-    rand_bonsai.id.clone()
+    rand_bonsai.id
 }
 
 fn become_gardener(name: String, info: MessageInfo, env: Env, deps: &mut Instance<MockStorage, MockApi, MockQuerier>) -> HandleResponse {
@@ -71,7 +69,7 @@ fn become_gardener(name: String, info: MessageInfo, env: Env, deps: &mut Instanc
     res
 }
 
-fn buy_bonsai(bonsai_id: String, info: MessageInfo, env: Env, deps: &mut Instance<MockStorage, MockApi, MockQuerier>) -> HandleResponse {
+fn buy_bonsai(bonsai_id: u64, info: MessageInfo, env: Env, deps: &mut Instance<MockStorage, MockApi, MockQuerier>) -> HandleResponse {
     let msg = HandleMsg::BuyBonsai { b_id: bonsai_id };
     let res: HandleResponse = handle(deps, env, info, msg).unwrap();
     res
@@ -120,7 +118,7 @@ fn test_become_gardener_works() {
     let bonsai_price = coin(10, BOND_DENOM);
     let env = mock_env_height(100);
     let info = mock_info(&sender_addr, &coins(1000, BOND_DENOM));
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
@@ -128,7 +126,7 @@ fn test_become_gardener_works() {
         attr("gardener_addr", &sender_addr),
     ];
 
-    let res = become_gardener("leo".to_string(), info, env.clone(), &mut deps);
+    let res = become_gardener("leo".to_string(), info.clone(), env.clone(), &mut deps);
 
     // verify that the result attributes are equals to the expected ones
     assert_eq!(exp_res, res);
@@ -140,17 +138,19 @@ fn test_become_gardener_works() {
 
 #[test]
 fn test_buy_bonsai_works() {
-    let mut deps = mock_instance(WASM, &[]);
-
     let sender_addr = HumanAddr::from("addr0001");
     let bonsai_price = coin(10, BOND_DENOM);
+
+    let mut deps = mock_instance_with_balances(WASM,
+                                               &[(&sender_addr.clone(), &coins(1000, BOND_DENOM))]);
     let env = mock_env_height(100);
-    let info = mock_info(sender_addr, &coins(1000, BOND_DENOM));
+    let info = mock_info(sender_addr, &coins(15, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let _res = become_gardener("leo".to_string(), info.clone(), env.clone(), &mut deps);
+
 
     let bonsai_id = get_random_bonsai_id(&mut deps);
 
@@ -169,13 +169,13 @@ fn test_buy_bonsai_works() {
         data: None,
     };
 
-    let res = buy_bonsai(bonsai_id.clone(), info.clone(), env.clone(), &mut deps);
+    let res = buy_bonsai(bonsai_id, info.clone(), env.clone(), &mut deps);
     assert_eq!(exp_res, res);
 
     // check if the gardeners was saved
     let gardener: Gardener = query_gardener(&mut deps, env.clone(), info.sender.clone());
     assert_eq!("leo", gardener.name);
-    assert_eq!(bonsai_id.clone(), gardener.bonsais[0].id)
+    assert_eq!(bonsai_id, gardener.bonsais[0].id)
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn test_sell_bonsai_works() {
     let info = mock_info(sender_addr, &coins(1000, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let bonsai_id = get_random_bonsai_id(&mut deps);
 
@@ -212,7 +212,7 @@ fn test_sell_bonsai_works() {
 
     let msg = HandleMsg::SellBonsai {
         recipient: buyer_addr.clone(),
-        b_id: bonsai_id.clone(),
+        b_id: bonsai_id,
     };
     let res: HandleResponse = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
 
@@ -239,15 +239,15 @@ fn test_cut_bonsai_works() {
     let info = mock_info(sender_addr, &coins(100, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let bonsai_id = get_random_bonsai_id(&mut deps);
     let _res = become_gardener("leo".to_string(), info.clone(), env.clone(), &mut deps);
 
-    let _res = buy_bonsai(bonsai_id.clone(), info.clone(), env.clone(), &mut deps);
+    let _res = buy_bonsai(bonsai_id, info.clone(), env.clone(), &mut deps);
 
     let msg = HandleMsg::CutBonsai {
-        b_id: bonsai_id.clone(),
+        b_id: bonsai_id,
     };
 
     let res: HandleResponse = handle(&mut deps, env.clone(), info.clone(), msg).unwrap();
@@ -256,7 +256,7 @@ fn test_cut_bonsai_works() {
     exp_res.attributes = vec![
         attr("action", "cut_bonsai"),
         attr("owner", info.sender.clone()),
-        attr("bonsai_id", bonsai_id.clone()),
+        attr("bonsai_id", bonsai_id),
     ];
 
     assert_eq!(exp_res, res);
