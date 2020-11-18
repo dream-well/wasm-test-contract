@@ -18,4 +18,4 @@ and dig into the [cosmwasm docs](https://www.cosmwasm.com).
                                                       --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
                                                       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
                                                       cosmwasm/rust-optimizer:0.10.4`
-5. Inside the contract `helper.ts` file there is an example of how to try out the contract
+5. Inside the contract `helper.ts` file there is an example of how to try the contract
