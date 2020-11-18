@@ -4,12 +4,13 @@ use crate::state::{bonsai_store_readonly, gardeners_store, Bonsai, Gardener};
 use assert::equal;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
 use cosmwasm_std::{
-    attr, coin, Api, BankMsg, Coin, Decimal, Env, Extern, HandleResponse, HumanAddr, Querier,
-    Storage, Validator,
+    attr, coin, coins, Api, BankMsg, Coin, Decimal, Env, Extern, HandleResponse, HumanAddr,
+    MessageInfo, Querier, Storage, Validator,
 };
 use rand::seq::SliceRandom;
 
 const DEFAULT_VALIDATOR: &str = "default-validator";
+const BOND_DENOM: &str = "bonsai";
 
 // Mock validator constructor
 fn sample_validator<U: Into<HumanAddr>>(addr: U) -> Validator {
@@ -42,6 +43,7 @@ fn set_balance(querier: &mut MockQuerier, addr: HumanAddr, balance: Vec<Coin>) {
 fn setup_test<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: &Env,
+    info: MessageInfo,
     bonsai_price: Coin,
     bonsai_number: u64,
 ) {
@@ -49,8 +51,7 @@ fn setup_test<S: Storage, A: Api, Q: Querier>(
         price: bonsai_price,
         number: bonsai_number,
     };
-    let sender_addr = HumanAddr::from("addr0001");
-    init(deps, env.clone(), mock_info(&sender_addr, &[]), init_msg).unwrap();
+    init(deps, env.clone(), info, init_msg).unwrap();
 }
 
 // return a random bonsai id
@@ -89,11 +90,11 @@ fn test_become_gardener_works() {
     let mut deps = mock_dependencies(&[]);
 
     let sender_addr = HumanAddr::from("addr0001");
-    let bond_denom = "bonsai";
-    let bonsai_price = coin(10, bond_denom);
+    let bonsai_price = coin(10, BOND_DENOM);
     let bonsai_height = 100;
     let env = mock_env_height(bonsai_height);
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
@@ -104,7 +105,7 @@ fn test_become_gardener_works() {
     let msg = HandleMsg::BecomeGardener {
         name: String::from("leo"),
     };
-    let res = handle(&mut deps, env.clone(), mock_info(&sender_addr, &[]), msg);
+    let res = handle(&mut deps, env.clone(), info.clone(), msg);
 
     // verify it not fails
     assert!(res.is_ok());
@@ -117,19 +118,18 @@ fn test_buy_bonsai_works() {
     let mut deps = mock_dependencies(&[]);
 
     let sender_addr = HumanAddr::from("addr0001");
-    let bond_denom = "bonsai";
-    let bonsai_price = coin(10, bond_denom);
+    let bonsai_price = coin(10, BOND_DENOM);
     let bonsai_height = 100;
     let env = mock_env_height(bonsai_height);
-    let info = mock_info(sender_addr, &[]);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
-    set_validator(&mut deps.querier, bond_denom);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
+    set_validator(&mut deps.querier, BOND_DENOM);
     set_balance(
         &mut deps.querier,
         info.sender.clone(),
-        vec![coin(1000, bond_denom)],
+        vec![coin(1000, BOND_DENOM)],
     );
 
     let canonical_addr = &deps.api.canonical_address(&info.sender.clone()).unwrap();
@@ -155,7 +155,7 @@ fn test_buy_bonsai_works() {
 
     let msg = HandleMsg::BuyBonsai { b_id: bonsai_id };
 
-    let res = handle(&mut deps, env.clone(), mock_info(&info.sender, &[]), msg);
+    let res = handle(&mut deps, env.clone(), info, msg);
 
     assert!(res.is_ok());
     assert_eq!(exp_res, res.unwrap())
@@ -167,19 +167,18 @@ fn test_sell_bonsai_works() {
 
     let sender_addr = HumanAddr::from("addr0001");
     let buyer_addr = HumanAddr::from("addr0002");
-    let bond_denom = "bonsai";
-    let bonsai_price = coin(10, bond_denom);
+    let bonsai_price = coin(10, BOND_DENOM);
     let bonsai_height = 100;
     let env = mock_env_height(bonsai_height);
-    let info = mock_info(sender_addr, &[]);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
-    set_validator(&mut deps.querier, bond_denom);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
+    set_validator(&mut deps.querier, BOND_DENOM);
     set_balance(
         &mut deps.querier,
         buyer_addr.clone(),
-        vec![coin(1000, bond_denom)],
+        vec![coin(1000, BOND_DENOM)],
     );
 
     let bonsai = query_bonsais(&deps)
@@ -228,17 +227,16 @@ fn test_cut_bonsai_works() {
     let mut deps = mock_dependencies(&[]);
 
     let sender_addr = HumanAddr::from("addr0001");
-    let bond_denom = "bonsai";
-    let bonsai_price = coin(10, bond_denom);
+    let bonsai_price = coin(10, BOND_DENOM);
     let bonsai_height = 100;
     let env = mock_env_height(bonsai_height);
-    let info = mock_info(sender_addr, &[]);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
 
     // setup test environment
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let canonical_addr = &deps.api.canonical_address(&info.sender.clone()).unwrap();
-    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10, bonsai_height, bonsai_price);
     let gardener = Gardener::new(
         "leo".to_string(),
         canonical_addr.clone(),
@@ -272,8 +270,11 @@ fn query_bonsais_works() {
     let mut deps = mock_dependencies(&[]);
     let bonsai_price = coin(10, "bonsai");
     let bonsai_height = 100;
+    let sender_addr = HumanAddr::from("addr0001");
+
     let env = mock_env_height(bonsai_height);
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
     let bonsais = query_bonsais(&deps).unwrap();
 
@@ -286,11 +287,12 @@ fn query_gardener_works() {
     let sender_addr = HumanAddr::from("addr0001");
     let bonsai_price = coin(10, "bonsai");
     let bonsai_height = 100;
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
 
     let env = mock_env_height(bonsai_height);
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
-    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10, bonsai_height, bonsai_price);
     let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
 
     let gardener = Gardener::new("leo".to_string(), canonical_addr.clone(), vec![bonsai]);
@@ -310,9 +312,10 @@ fn query_all_gardeners_works() {
     let bonsai_height = 100;
 
     let env = mock_env_height(bonsai_height);
-    setup_test(&mut deps, &env, bonsai_price.clone(), 10);
+    let info = mock_info(sender_addr.clone(), &coins(25, BOND_DENOM));
+    setup_test(&mut deps, &env, info.clone(), bonsai_price.clone(), 10);
 
-    let bonsai = Bonsai::new(10,bonsai_height, bonsai_price);
+    let bonsai = Bonsai::new(10, bonsai_height, bonsai_price);
     let canonical_addr = &deps.api.canonical_address(&sender_addr).unwrap();
     let other_addr = HumanAddr::from("addr0002");
     let other_addr = &deps.api.canonical_address(&other_addr).unwrap();

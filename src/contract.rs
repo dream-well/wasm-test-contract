@@ -23,7 +23,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
     msg: InitMsg,
 ) -> Result<InitResponse, MyCustomError> {
     // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price.clone());
+    let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price);
     bonsai_store(&mut deps.storage).save(&bonsai_list)?;
     let mut res = InitResponse::default();
     res.attributes = vec![attr("action", "grown_bonsais")];
@@ -105,12 +105,16 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     };
 
     // check if the gardener has enough funds to buy the bonsai
-    let denom = deps.querier.query_bonded_denom()?;
-    let balance = deps.querier.query_balance(&info.sender, &denom.as_str())?;
-    deps.api.debug(info.sender.clone().as_str());
-    if balance.amount < bonsai.price.amount {
-        deps.api.debug(balance.amount.clone().to_string().as_str());
-        deps.api.debug(bonsai.price.amount.clone().to_string().as_str());
+    let sent_funds = info.sent_funds.first().ok_or_else(|| {
+        MyCustomError::Std(StdError::generic_err("No funds to complete the purchase"))
+    })?;
+    if sent_funds.denom == bonsai.price.denom {
+        if sent_funds.amount < bonsai.price.amount {
+            return Err(MyCustomError::Std(StdError::generic_err(
+                "Insufficient funds to buy the bonsai",
+            )));
+        }
+    } else {
         return Err(MyCustomError::Std(StdError::generic_err(
             "Insufficient funds to buy the bonsai",
         )));
@@ -124,7 +128,6 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
 
     let canonical_addr = &deps.api.canonical_address(&info.sender)?;
     // todo check if it's possible to use may_update
-    gardeners_store(&mut deps.storage).load(canonical_addr.as_slice())?;
     gardeners_store(&mut deps.storage).update::<_, StdError>(
         canonical_addr.as_slice(),
         |gardener| {

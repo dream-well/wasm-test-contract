@@ -43,7 +43,7 @@ impl BonsaiList {
             bonsais.push(Bonsai::new(i, birth_date, price.clone()));
             i += 1;
         }
-        BonsaiList{ bonsais }
+        BonsaiList { bonsais }
     }
 }
 

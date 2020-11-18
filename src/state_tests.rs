@@ -10,7 +10,7 @@ fn new_bonsai() {
         price: coin(145, "testCoin"),
     };
 
-    let cur_bonsai = Bonsai::new(1,100, exp_bonsai.price.clone());
+    let cur_bonsai = Bonsai::new(1, 100, exp_bonsai.price.clone());
 
     exp_bonsai.id = cur_bonsai.id.clone();
 
