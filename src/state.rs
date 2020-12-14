@@ -48,12 +48,12 @@ impl BonsaiList {
 }
 
 /// return a writable bonsais list
-pub fn bonsai_store<S: Storage>(storage: &mut S) -> Singleton<S, BonsaiList> {
+pub fn bonsai_store(storage: &mut dyn Storage) -> Singleton<BonsaiList> {
     singleton(storage, BONSAI_KEY)
 }
 
 /// return a read-only bonsais list
-pub fn bonsai_store_readonly<S: Storage>(storage: &S) -> ReadonlySingleton<S, BonsaiList> {
+pub fn bonsai_store_read(storage: &dyn Storage) -> ReadonlySingleton<BonsaiList> {
     singleton_read(storage, BONSAI_KEY)
 }
 
@@ -76,11 +76,11 @@ impl Gardener {
 }
 
 /// return a writable gardeners' bucket
-pub fn gardeners_store<S: Storage>(storage: &mut S) -> Bucket<S, Gardener> {
+pub fn gardeners_store(storage: &mut dyn Storage) -> Bucket<Gardener> {
     bucket(storage, GARDENERS_KEY)
 }
 
 /// return a read-only gardeners' bucket
-pub fn gardeners_store_readonly<S: Storage>(storage: &S) -> ReadonlyBucket<S, Gardener> {
+pub fn gardeners_store_read(storage: &dyn Storage) -> ReadonlyBucket<Gardener> {
     bucket_read(storage, GARDENERS_KEY)
 }

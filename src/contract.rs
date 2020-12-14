@@ -1,13 +1,12 @@
 use cosmwasm_std::{
-    attr, to_binary, Api, BankMsg, Binary, CanonicalAddr, Env, Extern, HandleResponse, HumanAddr,
-    InitResponse, MessageInfo, Order, Querier, StdError, StdResult, Storage,
+    attr, to_binary, BankMsg, Binary, CanonicalAddr, Deps, DepsMut, Env, HandleResponse, HumanAddr,
+    InitResponse, MessageInfo, Order, StdError, StdResult,
 };
 
 use crate::errors::MyCustomError;
 use crate::msg::{AllGardenersResponse, HandleMsg, InitMsg, QueryMsg};
 use crate::state::{
-    bonsai_store, bonsai_store_readonly, gardeners_store, gardeners_store_readonly, BonsaiList,
-    Gardener,
+    bonsai_store, bonsai_store_read, gardeners_store, gardeners_store_read, BonsaiList, Gardener,
 };
 
 // version info for migration purposes
@@ -16,22 +15,22 @@ use crate::state::{
 // const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // init is like the genesis of cosmos SDK
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn init(
+    deps: DepsMut,
     env: Env,
     _info: MessageInfo,
     msg: InitMsg,
 ) -> Result<InitResponse, MyCustomError> {
     // set_contract_version(&mut deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let bonsai_list = BonsaiList::grow_bonsais(msg.number, env.block.height, msg.price);
-    bonsai_store(&mut deps.storage).save(&bonsai_list)?;
+    bonsai_store(deps.storage).save(&bonsai_list)?;
     let mut res = InitResponse::default();
     res.attributes = vec![attr("action", "grown_bonsais")];
     Ok(res)
 }
 
-pub fn handle<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: HandleMsg,
@@ -46,13 +45,13 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_become_gardener(
+    deps: DepsMut,
     info: MessageInfo,
     name: String,
 ) -> Result<HandleResponse, MyCustomError> {
     let canonical_addr = &deps.api.canonical_address(&info.sender)?;
-    let res = gardeners_store(&mut deps.storage).load(canonical_addr.as_slice());
+    let res = gardeners_store(deps.storage).load(canonical_addr.as_slice());
     let gardener = match res {
         Ok(_) => {
             return Err(MyCustomError::Std(StdError::generic_err(
@@ -62,7 +61,7 @@ pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
         Err(_) => Gardener::new(name, canonical_addr.clone(), vec![]),
     };
 
-    gardeners_store(&mut deps.storage).save(canonical_addr.as_slice(), &gardener)?;
+    gardeners_store(deps.storage).save(canonical_addr.as_slice(), &gardener)?;
 
     let mut res = HandleResponse::default();
     res.attributes = vec![
@@ -73,12 +72,8 @@ pub fn handle_become_gardener<S: Storage, A: Api, Q: Querier>(
     Ok(res)
 }
 
-fn remove_bonsai<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    address: CanonicalAddr,
-    bonsai_id: u64,
-) {
-    let _ = gardeners_store(&mut deps.storage).update::<_, StdError>(
+fn remove_bonsai(deps: DepsMut, address: CanonicalAddr, bonsai_id: u64) {
+    let _ = gardeners_store(deps.storage).update::<_, StdError>(
         address.as_slice(),
         |seller_gardener| {
             let mut unwrapped = seller_gardener.unwrap();
@@ -88,14 +83,14 @@ fn remove_bonsai<S: Storage, A: Api, Q: Querier>(
     );
 }
 
-pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_buy_bonsai(
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
     // try to load bonsai list if present otherwise returns error
-    let bonsai_list = bonsai_store(&mut deps.storage).load()?;
+    let bonsai_list = bonsai_store(deps.storage).load()?;
 
     let bonsai = bonsai_list.bonsais.iter().find(|bonsai| bonsai.id == id);
 
@@ -121,21 +116,18 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     }
 
     // remove the bought bonsai from the garden
-    bonsai_store(&mut deps.storage).update::<_, StdError>(|mut bonsai_list| {
+    bonsai_store(deps.storage).update::<_, StdError>(|mut bonsai_list| {
         bonsai_list.bonsais.retain(|bonsai| bonsai.id != id);
         Ok(bonsai_list)
     })?;
 
     let canonical_addr = &deps.api.canonical_address(&info.sender)?;
     // todo check if it's possible to use may_update
-    gardeners_store(&mut deps.storage).update::<_, StdError>(
-        canonical_addr.as_slice(),
-        |gardener| {
-            let mut unwrapped = gardener.unwrap();
-            unwrapped.bonsais.push(bonsai.clone());
-            Ok(unwrapped)
-        },
-    )?;
+    gardeners_store(deps.storage).update::<_, StdError>(canonical_addr.as_slice(), |gardener| {
+        let mut unwrapped = gardener.unwrap();
+        unwrapped.bonsais.push(bonsai.clone());
+        Ok(unwrapped)
+    })?;
 
     let res = HandleResponse {
         messages: vec![BankMsg::Send {
@@ -155,8 +147,8 @@ pub fn handle_buy_bonsai<S: Storage, A: Api, Q: Querier>(
     Ok(res)
 }
 
-pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_sell_bonsai(
+    deps: DepsMut,
     info: MessageInfo,
     buyer: HumanAddr,
     id: u64,
@@ -165,7 +157,7 @@ pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
     let seller_addr = &deps.api.canonical_address(&info.sender)?;
 
     // extract the bonsai to sell
-    let bonsai_to_sell = gardeners_store(&mut deps.storage)
+    let bonsai_to_sell = gardeners_store(deps.storage)
         .load(seller_addr.as_slice())?
         .bonsais
         .iter()
@@ -186,14 +178,11 @@ pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
 
     // add sold bonsai to buyer list
     let buyer_addr = &deps.api.canonical_address(&buyer)?;
-    gardeners_store(&mut deps.storage).update::<_, StdError>(
-        buyer_addr.as_slice(),
-        |gardener| {
-            let mut unwrapped = gardener.unwrap();
-            unwrapped.bonsais.push(bonsai_to_sell);
-            Ok(unwrapped)
-        },
-    )?;
+    gardeners_store(deps.storage).update::<_, StdError>(buyer_addr.as_slice(), |gardener| {
+        let mut unwrapped = gardener.unwrap();
+        unwrapped.bonsais.push(bonsai_to_sell);
+        Ok(unwrapped)
+    })?;
 
     // remove the sold bonsai from seller list
     remove_bonsai(deps, seller_addr.clone(), id);
@@ -208,8 +197,8 @@ pub fn handle_sell_bonsai<S: Storage, A: Api, Q: Querier>(
     Ok(res)
 }
 
-pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn handle_cut_bonsai(
+    deps: DepsMut,
     info: MessageInfo,
     id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
@@ -226,11 +215,7 @@ pub fn handle_cut_bonsai<S: Storage, A: Api, Q: Querier>(
     Ok(res)
 }
 
-pub fn query<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    _env: Env,
-    msg: QueryMsg,
-) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetBonsais {} => to_binary(&query_bonsais(deps)?),
         QueryMsg::GetGardener { sender } => to_binary(&query_gardener(deps, sender)?),
@@ -238,27 +223,20 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_bonsais<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<BonsaiList> {
-    let bonsais = bonsai_store_readonly(&deps.storage).load()?;
+pub fn query_bonsais(deps: Deps) -> StdResult<BonsaiList> {
+    let bonsais = bonsai_store_read(deps.storage).load()?;
     Ok(bonsais)
 }
 
-pub fn query_gardener<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    sender: HumanAddr,
-) -> StdResult<Option<Gardener>> {
+pub fn query_gardener(deps: Deps, sender: HumanAddr) -> StdResult<Option<Gardener>> {
     let canonical_addr = deps.api.canonical_address(&sender)?;
-    let response = gardeners_store_readonly(&deps.storage).may_load(canonical_addr.as_slice())?;
+    let response = gardeners_store_read(deps.storage).may_load(canonical_addr.as_slice())?;
 
     Ok(response)
 }
 
-pub fn query_all_gardeners<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<AllGardenersResponse> {
-    let res: StdResult<Vec<Gardener>> = gardeners_store_readonly(&deps.storage)
+pub fn query_all_gardeners(deps: Deps) -> StdResult<AllGardenersResponse> {
+    let res: StdResult<Vec<Gardener>> = gardeners_store_read(deps.storage)
         .range(None, None, Order::Ascending)
         .map(|item| item.map(|(_k, gardener)| gardener))
         .collect();
