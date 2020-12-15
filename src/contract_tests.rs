@@ -4,8 +4,8 @@ use crate::state::{bonsai_store_read, gardeners_store, Bonsai, Gardener};
 use assert::equal;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
 use cosmwasm_std::{
-    attr, coin, coins, Api, BankMsg, Coin, Decimal, Deps, DepsMut, Env, HandleResponse,
-    HumanAddr, MessageInfo, Validator,
+    attr, coin, coins, Api, BankMsg, Coin, Decimal, Deps, DepsMut, Env, HandleResponse, HumanAddr,
+    MessageInfo, Validator,
 };
 use rand::seq::SliceRandom;
 
