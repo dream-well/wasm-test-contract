@@ -23,14 +23,14 @@ interface Options {
 }
 
 const defaultOptions: Options = {
-  httpUrl: 'https://lcd.heldernet.cosmwasm.com',
-  networkId: 'hackatom-wasm',
-  feeToken: 'ucosm',
+  httpUrl: 'https://rpc.musselnet.cosmwasm.com',
+  networkId: 'musselnet',
+  feeToken: 'umayo',
   gasPrice: 0.01,
-  bech32prefix: 'cosmos',
+  bech32prefix: 'wasm',
 }
 
-const defaultFaucetUrl = 'https://faucet.heldernet.cosmwasm.com/credit'
+const defaultFaucetUrl = 'https://faucet.musselnet.cosmwasm.com/credit'
 
 const buildFeeTable = (feeToken: string, gasPrice: number): FeeTable => {
   const stdFee = (gas: number, denom: string, price: number) => {
@@ -42,7 +42,7 @@ const buildFeeTable = (feeToken: string, gasPrice: number): FeeTable => {
   }
 
   return {
-    upload: stdFee(1500000, feeToken, gasPrice),
+    upload: stdFee(1000000, feeToken, gasPrice),
     init: stdFee(500000, feeToken, gasPrice),
     migrate: stdFee(500000, feeToken, gasPrice),
     exec: stdFee(200000, feeToken, gasPrice),
@@ -234,9 +234,9 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // Example:
 // const mnemonic = "use favorite source endless faculty sauce clean core below squirrel profit creek either sign chef giggle ahead stool secret mouse prepare oven more item"
 // const result = connect(mnemonic, defaultOptions)
-// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.1.4"
-// const optimizerPath = "cosmwasm/rust-optimizer:0.10.4"
-// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.1.4/my_first_contract.wasm"
+// const metaSourcePath = "https://github.com/bragaz/wasm-test-contract/tree/v0.2.1"
+// const optimizerPath = "cosmwasm/rust-optimizer:0.10.7"
+// const sourceUrl = "https://github.com/bragaz/wasm-test-contract/releases/download/v0.2.1/my_first_contract.wasm"
 // const resolvedResult = await result
 // hitFaucet(defaultFaucetUrl, resolvedResult.address, defaultOptions.feeToken)
 // const factory = bonsaiCW(resolvedResult.client, metaSourcePath, optimizerPath, sourceUrl)
