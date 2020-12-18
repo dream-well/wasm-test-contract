@@ -144,7 +144,7 @@ interface BonsaiContract {
   // codeId must come from a previous deploy
   // label is the public name of the contract in listing
   // if you set admin, you can run migrations on this contract (likely client.senderAddress)
-  instantiate: (codeId: number, initMsg: Record<string, InitMsg>, label: string, admin?: string) => Promise<BonsaiInstance>
+  instantiate: (codeId: number, initMsg: Record<string, unknown>, label: string, admin?: string) => Promise<BonsaiInstance>
 
   use: (contractAddress: string) => BonsaiInstance
 }
@@ -214,7 +214,7 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
     return result.codeId;
   }
 
-  const instantiate = async (codeId: number, initMsg: Record<string, InitMsg>, label: string, admin?: string): Promise<BonsaiInstance> => {
+  const instantiate = async (codeId: number, initMsg: Record<string, unknown>, label: string, admin?: string): Promise<BonsaiInstance> => {
     const result = await client.instantiate(codeId, initMsg, label, { memo: `Init ${label}`, admin});
     return use(result.contractAddress);
   }
@@ -232,7 +232,8 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // hitFaucet(defaultFaucetUrl, resolvedResult.address, defaultOptions.feeToken)
 // const factory = bonsaiCW(resolvedResult.client, metaSourcePath, optimizerPath, sourceUrl)
 // const codeId = await factory.upload();
-// const contract = await factory.instantiate(codeId, {price: {denom: "ucosm", amount: "5"}, number: 5}, "Bonsai")
+// const initMsg = {price: {denom: "ucosm", amount: "5"}, number: 5}
+// const contract = await factory.instantiate(codeId, initMsg, "Bonsai")
 // contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
 //
 // OR
