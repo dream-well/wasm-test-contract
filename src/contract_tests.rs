@@ -4,7 +4,7 @@ use crate::state::{bonsai_store_read, gardeners_store, Bonsai, Gardener};
 use assert::equal;
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
 use cosmwasm_std::{
-    attr, coin, coins, Api, BankMsg, Coin, Decimal, Deps, DepsMut, Env, HandleResponse, HumanAddr,
+    attr, coin, coins, Api, Coin, Decimal, Deps, DepsMut, Env, HandleResponse, HumanAddr,
     MessageInfo, Validator,
 };
 use rand::seq::SliceRandom;
@@ -99,7 +99,7 @@ fn test_become_gardener_works() {
     let msg = HandleMsg::BecomeGardener {
         name: String::from("leo"),
     };
-    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
+    let res = handle(deps.as_mut(), info.clone(), msg);
 
     // verify it not fails
     assert!(res.is_ok());
@@ -132,24 +132,17 @@ fn test_buy_bonsai_works() {
 
     let bonsai_id = get_random_bonsai_id(deps.as_ref());
 
-    let exp_res = HandleResponse {
-        messages: vec![BankMsg::Send {
-            from_address: info.sender.clone(),
-            to_address: env.contract.address.clone(),
-            amount: vec![bonsai_price.clone()],
-        }
-        .into()],
-        attributes: vec![
-            attr("action", "buy_bonsai"),
-            attr("buyer", &info.sender),
-            attr("amount", bonsai_price.amount),
-        ],
-        data: None,
-    };
+    let mut exp_res = HandleResponse::default();
+
+    exp_res.attributes = vec![
+        attr("action", "buy_bonsai"),
+        attr("buyer", &info.sender),
+        attr("amount", bonsai_price.amount),
+    ];
 
     let msg = HandleMsg::BuyBonsai { b_id: bonsai_id };
 
-    let res = handle(deps.as_mut(), env.clone(), info, msg);
+    let res = handle(deps.as_mut(), info, msg);
 
     assert!(res.is_ok());
     assert_eq!(exp_res, res.unwrap())
@@ -201,7 +194,7 @@ fn test_sell_bonsai_works() {
         recipient: buyer_addr.clone(),
         b_id: bonsai.clone().id,
     };
-    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
+    let res = handle(deps.as_mut(), info.clone(), msg);
 
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
@@ -245,7 +238,7 @@ fn test_cut_bonsai_works() {
         b_id: bonsai.id.clone(),
     };
 
-    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
+    let res = handle(deps.as_mut(), info.clone(), msg);
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
         attr("action", "cut_bonsai"),

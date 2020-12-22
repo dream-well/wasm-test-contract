@@ -18,32 +18,41 @@ interface Options {
   readonly httpUrl: string
   readonly networkId: string
   readonly feeToken: string
-  readonly gasPrice: string
+  readonly gasPrice: number
   readonly bech32prefix: string
 }
 
 const defaultOptions: Options = {
-  httpUrl: 'https://rpc.musselnet.cosmwasm.com',
-  networkId: 'musselnet',
-  feeToken: 'umayo',
-  gasPrice: '0.025umayo',
-  bech32prefix: 'wasm',
+  httpUrl: 'https://lcd.heldernet.cosmwasm.com',
+  networkId: 'hackatom-wasm',
+  feeToken: 'ucosm',
+  gasPrice: 0.01,
+  bech32prefix: 'cosmos',
 }
 
-const defaultFaucetUrl = 'https://faucet.musselnet.cosmwasm.com/credit'
+const defaultFaucetUrl = 'https://faucet.heldernet.cosmwasm.com/credit'
 
-const defaultGasPrice = GasPrice.fromString("0.025umayo");
-const defaultGasLimits: GasLimits<CosmWasmFeeTable> = {
-  upload: 1_500_000,
-  init: 500_000,
-  migrate: 200_000,
-  exec: 200_000,
-  send: 80_000,
-  changeAdmin: 80_000,
-};
+const buildFeeTable = (feeToken: string, gasPrice: number): FeeTable => {
+  const stdFee = (gas: number, denom: string, price: number) => {
+    const amount = Math.floor(gas * price)
+    return {
+      amount: [{ amount: amount.toString(), denom: denom }],
+      gas: gas.toString(),
+    }
+  }
 
-const buildWallet = (mnemonic: string): Promise<Secp256k1HdWallet> => {
-  return Secp256k1HdWallet.fromMnemonic(mnemonic, makeCosmoshubPath(0), defaultOptions.bech32prefix);
+  return {
+    upload: stdFee(1500000, feeToken, gasPrice),
+    init: stdFee(500000, feeToken, gasPrice),
+    migrate: stdFee(500000, feeToken, gasPrice),
+    exec: stdFee(200000, feeToken, gasPrice),
+    send: stdFee(80000, feeToken, gasPrice),
+    changeAdmin: stdFee(80000, feeToken, gasPrice),
+  }
+}
+
+const buildWallet = (mnemonic: string): Promise<Secp256k1Wallet> => {
+  return Secp256k1Wallet.fromMnemonic(mnemonic, makeCosmoshubPath(0), defaultOptions.bech32prefix);
 }
 
 const randomAddress = async (): Promise<string> => {
@@ -83,6 +92,7 @@ const connect = async (
   address: string
 }> => {
   const options: Options = { ...defaultOptions, ...opts }
+  const feeTable = buildFeeTable(options.feeToken, options.gasPrice)
   const wallet = await buildWallet(mnemonic)
   const [{ address }] = await wallet.getAccounts()
 
@@ -90,8 +100,7 @@ const connect = async (
     options.httpUrl,
     address,
     wallet,
-    defaultGasPrice,
-    defaultGasLimits,
+    feeTable
   )
   return { client, address }
 }
@@ -131,9 +140,9 @@ interface BonsaiInstance {
 
   // actions
   becomeGardener: (name: string) => Promise<string>
-  buyBonsai: (b_id: string) => Promise<string>
-  sellBonsai: (recipient: string, b_id: string) => Promise<string>
-  cutBonsai: (b_id: string) => Promise<string>
+  buyBonsai: (b_id: number, sent_funds: Coin[]) => Promise<string>
+  sellBonsai: (recipient: string, b_id: number) => Promise<string>
+  cutBonsai: (b_id: number) => Promise<string>
 }
 
 interface BonsaiContract {
@@ -144,7 +153,7 @@ interface BonsaiContract {
   // codeId must come from a previous deploy
   // label is the public name of the contract in listing
   // if you set admin, you can run migrations on this contract (likely client.senderAddress)
-  instantiate: (codeId: number, initMsg: Record<string, unknown>, label: string, admin?: string) => Promise<BonsaiInstance>
+  instantiate: (codeId: number, initMsg: InitMsg, label: string, admin?: string) => Promise<BonsaiInstance>
 
   use: (contractAddress: string) => BonsaiInstance
 }
@@ -169,17 +178,17 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
       return result.transactionHash;
     }
 
-    const buyBonsai = async (b_id: string) : Promise<string> => {
-      const result = await client.execute(contractAddress, {buy_bonsai:{b_id}});
+    const buyBonsai = async (b_id: number, sent_funds: Coin[]) : Promise<string> => {
+      const result = await client.execute(contractAddress, {buy_bonsai:{b_id}}, "", sent_funds);
       return  result.transactionHash;
     }
 
-    const sellBonsai = async(recipient: string, b_id: string): Promise<string> => {
+    const sellBonsai = async(recipient: string, b_id: number): Promise<string> => {
       const result = await  client.execute(contractAddress, {sell_bonsai:{b_id, recipient}});
       return result.transactionHash;
     }
 
-    const cutBonsai = async(b_id: string): Promise<string> => {
+    const cutBonsai = async(b_id: number): Promise<string> => {
       const result = await  client.execute(contractAddress, {cut_bonsai:{b_id}});
       return result.transactionHash;
     }
@@ -214,7 +223,7 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
     return result.codeId;
   }
 
-  const instantiate = async (codeId: number, initMsg: Record<string, unknown>, label: string, admin?: string): Promise<BonsaiInstance> => {
+  const instantiate = async (codeId: number, initMsg: InitMsg, label: string, admin?: string): Promise<BonsaiInstance> => {
     const result = await client.instantiate(codeId, initMsg, label, { memo: `Init ${label}`, admin});
     return use(result.contractAddress);
   }
@@ -232,11 +241,10 @@ const bonsaiCW = (client: SigningCosmWasmClient, metaSource: string, builderSour
 // hitFaucet(defaultFaucetUrl, resolvedResult.address, defaultOptions.feeToken)
 // const factory = bonsaiCW(resolvedResult.client, metaSourcePath, optimizerPath, sourceUrl)
 // const codeId = await factory.upload();
-// const initMsg = {price: {denom: "ucosm", amount: "5"}, number: 5}
-// const contract = await factory.instantiate(codeId, initMsg, "Bonsai")
-// contract.contractAddress -> 'coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd'
+// const contract = await factory.instantiate(codeId, {price: {denom: "ucosm", amount: "5"}, number: 5}, "Bonsai")
+// contract.contractAddress -> 'cosmos1danus0j9c3fqrcku3g5qfzupa5etxxrjtrrsm0'
 //
 // OR
 //
-// const contract = factory.use('coral1267wq2zk22kt5juypdczw3k4wxhc4z47mug9fd')
+// const contract = factory.use('cosmos1danus0j9c3fqrcku3g5qfzupa5etxxrjtrrsm0')
 //

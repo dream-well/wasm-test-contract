@@ -17,7 +17,7 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    attr, coin, coins, from_binary, from_slice, BankMsg, Coin, Env, HandleResponse, HumanAddr,
+    attr, coin, coins, from_binary, from_slice, Coin, Env, HandleResponse, HumanAddr,
     InitResponse, MessageInfo, QueryResponse,
 };
 use cosmwasm_storage::to_length_prefixed;
@@ -166,21 +166,12 @@ fn test_buy_bonsai_works() {
 
     let bonsai_id = get_random_bonsai_id(&mut deps);
 
-    let exp_res = HandleResponse {
-        messages: vec![BankMsg::Send {
-            from_address: info.sender.clone(),
-            to_address: env.contract.address.clone(),
-            amount: vec![bonsai_price.clone()],
-        }
-        .into()],
-        attributes: vec![
-            attr("action", "buy_bonsai"),
-            attr("buyer", &info.sender),
-            attr("amount", bonsai_price.amount),
-        ],
-        data: None,
-    };
-
+    let mut exp_res = HandleResponse::default();
+    exp_res.attributes = vec![
+        attr("action", "buy_bonsai"),
+        attr("buyer", &info.sender),
+        attr("amount", bonsai_price.amount),
+    ];
     let res = buy_bonsai(bonsai_id, info.clone(), env.clone(), &mut deps);
     assert_eq!(exp_res, res);
 

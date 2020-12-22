@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, to_binary, BankMsg, Binary, CanonicalAddr, Deps, DepsMut, Env, HandleResponse, HumanAddr,
+    attr, to_binary, Binary, CanonicalAddr, Deps, DepsMut, Env, HandleResponse, HumanAddr,
     InitResponse, MessageInfo, Order, StdError, StdResult,
 };
 
@@ -31,13 +31,13 @@ pub fn init(
 
 pub fn handle(
     deps: DepsMut,
-    env: Env,
+    _: Env,
     info: MessageInfo,
     msg: HandleMsg,
 ) -> Result<HandleResponse, MyCustomError> {
     match msg {
         HandleMsg::BecomeGardener { name } => handle_become_gardener(deps, info, name),
-        HandleMsg::BuyBonsai { b_id } => handle_buy_bonsai(deps, env, info, b_id),
+        HandleMsg::BuyBonsai { b_id } => handle_buy_bonsai(deps, info, b_id),
         HandleMsg::SellBonsai { recipient, b_id } => {
             handle_sell_bonsai(deps, info, recipient, b_id)
         }
@@ -85,7 +85,6 @@ fn remove_bonsai(deps: DepsMut, address: CanonicalAddr, bonsai_id: u64) {
 
 pub fn handle_buy_bonsai(
     deps: DepsMut,
-    env: Env,
     info: MessageInfo,
     id: u64,
 ) -> Result<HandleResponse, MyCustomError> {
@@ -129,20 +128,12 @@ pub fn handle_buy_bonsai(
         Ok(unwrapped)
     })?;
 
-    let res = HandleResponse {
-        messages: vec![BankMsg::Send {
-            from_address: info.sender.clone(),
-            to_address: env.contract.address,
-            amount: vec![bonsai.price.clone()],
-        }
-        .into()],
-        attributes: vec![
-            attr("action", "buy_bonsai"),
-            attr("buyer", info.sender),
-            attr("amount", bonsai.price.amount),
-        ],
-        data: None,
-    };
+    let mut res = HandleResponse::default();
+    res.attributes = vec![
+        attr("action", "buy_bonsai"),
+        attr("buyer", info.sender),
+        attr("amount", bonsai.price.amount),
+    ];
 
     Ok(res)
 }
