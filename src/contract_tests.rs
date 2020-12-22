@@ -99,7 +99,7 @@ fn test_become_gardener_works() {
     let msg = HandleMsg::BecomeGardener {
         name: String::from("leo"),
     };
-    let res = handle(deps.as_mut(), info.clone(), msg);
+    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
 
     // verify it not fails
     assert!(res.is_ok());
@@ -142,7 +142,7 @@ fn test_buy_bonsai_works() {
 
     let msg = HandleMsg::BuyBonsai { b_id: bonsai_id };
 
-    let res = handle(deps.as_mut(), info, msg);
+    let res = handle(deps.as_mut(), env.clone(), info, msg);
 
     assert!(res.is_ok());
     assert_eq!(exp_res, res.unwrap())
@@ -194,7 +194,7 @@ fn test_sell_bonsai_works() {
         recipient: buyer_addr.clone(),
         b_id: bonsai.clone().id,
     };
-    let res = handle(deps.as_mut(), info.clone(), msg);
+    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
 
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
@@ -238,7 +238,7 @@ fn test_cut_bonsai_works() {
         b_id: bonsai.id.clone(),
     };
 
-    let res = handle(deps.as_mut(), info.clone(), msg);
+    let res = handle(deps.as_mut(), env.clone(), info.clone(), msg);
     let mut exp_res = HandleResponse::default();
     exp_res.attributes = vec![
         attr("action", "cut_bonsai"),

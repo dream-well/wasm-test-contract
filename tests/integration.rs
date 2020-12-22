@@ -17,8 +17,8 @@
 //! 4. Anywhere you see query(&deps, ...) you must replace it with query(&mut deps, ...)
 
 use cosmwasm_std::{
-    attr, coin, coins, from_binary, from_slice, Coin, Env, HandleResponse, HumanAddr,
-    InitResponse, MessageInfo, QueryResponse,
+    attr, coin, coins, from_binary, from_slice, Coin, Env, HandleResponse, HumanAddr, InitResponse,
+    MessageInfo, QueryResponse,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_vm::testing::{
